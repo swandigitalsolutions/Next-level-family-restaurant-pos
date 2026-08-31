@@ -155,6 +155,7 @@ function renderSidebar(activeKey, user) {
   }
 
   startOrderAlerts(user);
+  initSearchShortcut();
 }
 
 /* =========================================================
@@ -261,38 +262,101 @@ function startOrderAlerts(user) {
   document.addEventListener("visibilitychange", () => { if (!document.hidden) tick(); });
 }
 
-function confirmLogout(onConfirm) {
-  let overlay = document.getElementById("logoutConfirm");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "logoutConfirm";
-    overlay.className = "modal-overlay";
+/* Styled replacement for window.confirm(). Native confirm() freezes the tab,
+   ignores our design system, and on a busy service screen it is easy to dismiss
+   by reflex. This returns a promise, supports Escape/Enter, restores focus to
+   whatever the user was on, and marks destructive actions in red. */
+function confirmAction({ title, body = "", confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false } = {}) {
+  return new Promise((resolve) => {
+    const lastFocused = document.activeElement;
+    let overlay = document.getElementById("appConfirm");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "appConfirm";
+      overlay.className = "modal-overlay";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-labelledby", "appConfirmTitle");
+      document.body.appendChild(overlay);
+    }
     overlay.innerHTML = `
-      <div class="modal-box" style="width:380px">
+      <div class="modal-box confirm-box">
         <div class="modal-header">
-          <h2>Log out?</h2>
-          <span class="close-x" data-logout-cancel>&times;</span>
+          <h2 id="appConfirmTitle">${escapeHtml(title)}</h2>
+          <button class="close-x" type="button" data-confirm-cancel aria-label="Close">&times;</button>
         </div>
-        <div class="modal-body">You will be returned to the login screen.</div>
+        ${body ? `<div class="modal-body">${escapeHtml(body)}</div>` : ""}
         <div class="modal-footer">
-          <button class="btn btn-outline" data-logout-cancel>Cancel</button>
-          <button class="btn btn-primary" data-logout-confirm>Logout</button>
+          <button class="btn btn-outline" type="button" data-confirm-cancel>${escapeHtml(cancelLabel)}</button>
+          <button class="btn ${danger ? "btn-danger-solid" : "btn-primary"}" type="button" data-confirm-ok>${escapeHtml(confirmLabel)}</button>
         </div>
       </div>`;
-    document.body.appendChild(overlay);
+
+    const finish = (result) => {
+      overlay.classList.remove("show");
+      document.removeEventListener("keydown", onKey, true);
+      // Put the user back where they were so the next keystroke still lands.
+      if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); finish(false); }
+      if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); finish(true); }
+    };
+
+    overlay.querySelectorAll("[data-confirm-cancel]").forEach((el) => { el.onclick = () => finish(false); });
+    overlay.querySelector("[data-confirm-ok]").onclick = () => finish(true);
+    overlay.onclick = (e) => { if (e.target === overlay) finish(false); };
+    document.addEventListener("keydown", onKey, true);
+
+    overlay.classList.add("show");
+    overlay.querySelector("[data-confirm-ok]").focus();
+  });
+}
+
+function confirmLogout(onConfirm) {
+  confirmAction({
+    title: "Log out?",
+    body: "You will be returned to the login screen.",
+    confirmLabel: "Log out",
+  }).then((yes) => { if (yes) onConfirm(); });
+}
+
+/* Search-focus shortcut. On a till the mouse is the slow path, so "/" (or
+   Ctrl/Cmd-K) jumps straight to the search box on whichever screen is open, and
+   Escape clears it and returns focus to the page. Ignored while the user is
+   already typing in a field, so it never eats a keystroke mid-entry. */
+function initSearchShortcut() {
+  const box = document.querySelector('input[type="search"]');
+  if (!box) return;
+
+  if (!box.getAttribute("aria-label")) box.setAttribute("aria-label", box.placeholder || "Search");
+  // Advertise the shortcut in the placeholder so it is discoverable.
+  if (box.placeholder && !box.placeholder.includes("press /")) {
+    box.placeholder = box.placeholder.replace(/[\s.…]*$/, "") + "  ·  press /";
   }
 
-  const close = () => overlay.classList.remove("show");
-  overlay.querySelectorAll("[data-logout-cancel]").forEach((el) => {
-    el.onclick = close;
-  });
-  overlay.onclick = (e) => { if (e.target === overlay) close(); };
-  overlay.querySelector("[data-logout-confirm]").onclick = () => {
-    close();
-    onConfirm();
-  };
+  document.addEventListener("keydown", (e) => {
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "")
+      || document.activeElement?.isContentEditable;
+    const modalOpen = document.querySelector(".modal-overlay.show");
+    if (modalOpen) return;
 
-  overlay.classList.add("show");
+    if ((e.key === "/" && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) {
+      e.preventDefault();
+      box.focus();
+      box.select();
+      return;
+    }
+    if (e.key === "Escape" && document.activeElement === box) {
+      if (box.value) {
+        box.value = "";
+        box.dispatchEvent(new Event("input", { bubbles: true }));
+      } else {
+        box.blur();
+      }
+    }
+  });
 }
 
 function formatMoney(n) {

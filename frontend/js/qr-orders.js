@@ -186,8 +186,13 @@ function render(orders) {
   board.querySelectorAll("[data-advance]").forEach((b) =>
     b.addEventListener("click", () => setStatus(Number(b.dataset.advance), b.dataset.to)));
   board.querySelectorAll("[data-cancel]").forEach((b) =>
-    b.addEventListener("click", () => {
-      if (confirm("Cancel this order?")) setStatus(Number(b.dataset.cancel), "CANCELLED");
+    b.addEventListener("click", async () => {
+      const ok = await confirmAction({
+        title: "Cancel this order?",
+        body: "The kitchen will stop seeing it, and it can no longer be pushed to a bill.",
+        confirmLabel: "Cancel order", cancelLabel: "Keep order", danger: true,
+      });
+      if (ok) setStatus(Number(b.dataset.cancel), "CANCELLED");
     }));
   board.querySelectorAll("[data-push]").forEach((b) =>
     b.addEventListener("click", () => pushToBill(Number(b.dataset.push))));

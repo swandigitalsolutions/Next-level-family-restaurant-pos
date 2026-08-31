@@ -138,7 +138,12 @@
   }
 
   async function deleteCategory(id, type) {
-    if (!confirm("Delete this category? It must have no active items.")) return;
+    const ok = await confirmAction({
+      title: "Delete this category?",
+      body: "It must have no active items. This cannot be undone.",
+      confirmLabel: "Delete category", danger: true,
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/${type}/categories/${id}`, { method: "DELETE" });
       showToast("Category deleted");
@@ -235,7 +240,12 @@
   }
 
   async function deleteFoodItem(id) {
-    if (!confirm("Remove this food item from the menu?")) return;
+    const ok = await confirmAction({
+      title: "Remove this item?",
+      body: "It will no longer appear on the billing screens or the customer QR menu.",
+      confirmLabel: "Remove item", danger: true,
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/food/items/${id}`, { method: "DELETE" });
       showToast("Item removed");
@@ -334,7 +344,12 @@
   }
 
   async function deleteAlcoholItem(id) {
-    if (!confirm("Remove this alcohol product from the menu?")) return;
+    const ok = await confirmAction({
+      title: "Remove this product?",
+      body: "It will no longer appear on the bar billing screen or the customer QR menu.",
+      confirmLabel: "Remove product", danger: true,
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/alcohol/items/${id}`, { method: "DELETE" });
       showToast("Product removed");

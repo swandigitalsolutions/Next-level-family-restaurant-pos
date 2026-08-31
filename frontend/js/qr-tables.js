@@ -92,7 +92,12 @@ document.getElementById("qrDownloadBtn").addEventListener("click", async () => {
 document.getElementById("qrRegenBtn").addEventListener("click", async () => {
   const t = tableById(modalTableId);
   if (!t) return;
-  if (!confirm(`Regenerate the QR for ${t.table_no}? The old printed code will stop working.`)) return;
+  const ok = await confirmAction({
+    title: `Regenerate the QR for ${t.table_no}?`,
+    body: "The code currently printed and stuck on that table will stop working, and customers scanning it will see an error until you print the new one.",
+    confirmLabel: "Regenerate code", danger: true,
+  });
+  if (!ok) return;
   try {
     await apiFetch(`/qr-ordering/tables/${t.id}/regenerate-qr`, { method: "POST" });
     showToast("New QR generated");

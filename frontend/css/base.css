@@ -111,6 +111,8 @@ h1,h2,h3{letter-spacing:-.02em}
 .btn-outline{background:#fff;border-color:var(--border-strong);color:var(--text-soft)}
 .btn-outline:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-tint)}
 .btn-danger{background:#fff;border-color:#e9bdb9;color:var(--danger)}
+.btn-danger-solid{background:var(--danger);color:#fff;box-shadow:0 10px 20px -10px rgba(193,84,74,.6)}
+.btn-danger-solid:hover{background:#a8443b}
 .btn-danger:hover{background:var(--danger-soft);border-color:var(--danger)}
 .btn-sm{padding:8px 12px;font-size:11px;border-radius:9px}
 .btn-block{width:100%}
@@ -144,14 +146,17 @@ tbody tr:last-child td{border-bottom:0}
 .empty-state{text-align:center;color:var(--muted);padding:36px 16px;font-size:12.5px}
 
 /* ---------- modal & toast ---------- */
-.modal-overlay{position:fixed;inset:0;background:rgba(9,28,30,.5);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:20px}
+.modal-overlay{position:fixed;inset:0;background:rgba(36,23,21,.55);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);padding:20px}
 .modal-overlay.show{display:flex}
 .modal-box{background:#fff;border-radius:var(--radius-lg);width:460px;max-width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-lg);animation:modalIn .26s var(--ease-out)}
 .modal-header{padding:19px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .modal-header h2{font-size:16px;margin:0;font-weight:800}
-.modal-header .close-x{cursor:pointer;color:var(--muted);font-size:22px;line-height:1;transition:color .15s}
+.modal-header .close-x{cursor:pointer;color:var(--muted);font-size:22px;line-height:1;transition:color .15s;background:none;border:0;padding:0 4px;border-radius:8px}
+.modal-header .close-x:focus-visible{outline:none;box-shadow:var(--ring)}
 .modal-header .close-x:hover{color:var(--text)}
 .modal-body{padding:21px 22px}
+.confirm-box{width:420px}
+.confirm-box .modal-body{color:var(--text-soft);line-height:1.6;font-size:13px}
 .modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(18px);background:var(--sidebar-bg);color:#fff;padding:13px 20px;border-radius:12px;font-size:12.5px;font-weight:650;opacity:0;pointer-events:none;transition:all .24s var(--ease-out);z-index:200;box-shadow:var(--shadow-lg)}
 .toast.error{background:var(--danger)}

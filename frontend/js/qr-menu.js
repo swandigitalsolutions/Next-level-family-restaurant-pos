@@ -99,8 +99,11 @@ function renderMenu() {
   ).join("");
   document.querySelectorAll("#cats .qm-chip").forEach((chip) =>
     chip.addEventListener("click", () => {
+      // Chips are jump links, not a filter, so just move the highlight and
+      // scroll. Re-rendering the menu here discarded the smooth scroll target.
       state.activeCat = chip.dataset.cat;
-      renderMenu();
+      document.querySelectorAll("#cats .qm-chip").forEach((c) =>
+        c.classList.toggle("active", c.dataset.cat === state.activeCat));
       const sec = document.getElementById("sec-" + cssId(state.activeCat));
       if (sec) sec.scrollIntoView({ behavior: "smooth", block: "start" });
     }));
@@ -110,12 +113,43 @@ function renderMenu() {
   const trackBtn = document.getElementById("trackBtn");
   if (trackBtn) trackBtn.addEventListener("click", openStatus);
   updateCartBar();
+  observeSections();
+}
+
+/* Keep the sticky category chips in step with what the customer is actually
+   looking at. Without this the highlight only moved when a chip was tapped, so
+   after any scrolling it pointed at the wrong course. */
+let _sectionObserver = null;
+function observeSections() {
+  if (_sectionObserver) _sectionObserver.disconnect();
+  if (!("IntersectionObserver" in window)) return;
+
+  const setActive = (cat) => {
+    if (!cat || cat === state.activeCat) return;
+    state.activeCat = cat;
+    document.querySelectorAll("#cats .qm-chip").forEach((c) => {
+      const on = c.dataset.cat === cat;
+      c.classList.toggle("active", on);
+      // Drag the active chip back into view in the horizontal strip.
+      if (on) c.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    });
+  };
+
+  _sectionObserver = new IntersectionObserver((entries) => {
+    // Pick the visible section nearest the top of the viewport.
+    const visible = entries
+      .filter((e) => e.isIntersecting)
+      .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+    if (visible) setActive(visible.target.dataset.cat);
+  }, { rootMargin: "-88px 0px -65% 0px", threshold: 0 });
+
+  document.querySelectorAll(".qm-section[data-cat]").forEach((sec) => _sectionObserver.observe(sec));
 }
 
 function cssId(s) { return String(s).replace(/[^a-z0-9]+/gi, "-").toLowerCase(); }
 
 function renderSection(cat) {
-  return `<section class="qm-section" id="sec-${cssId(cat.category)}">
+  return `<section class="qm-section" id="sec-${cssId(cat.category)}" data-cat="${esc(cat.category)}">
     <h2>${esc(cat.category)}</h2>
     ${cat.items.map(renderItem).join("")}
   </section>`;
@@ -133,16 +167,22 @@ function renderItem(item) {
       <div class="qm-item-price">${money(item.price)}</div>
       ${!item.available ? `<div class="qm-unavail">Currently unavailable</div>` : ""}
     </div>
-    <div>
-      ${!item.available ? "" : inCart
-        ? `<div class="qm-stepper" data-key="${key}">
-             <button data-step="-1" aria-label="decrease">−</button>
-             <span>${inCart.qty}</span>
-             <button data-step="1" aria-label="increase">+</button>
-           </div>`
-        : `<button class="qm-add" data-add="${key}">Add</button>`}
-    </div>
+    <div class="qm-item-act" data-act="${key}">${renderItemControl(item)}</div>
   </div>`;
+}
+
+/* The add / stepper control for one item. Kept separate from renderItem so a
+   quantity change can repaint just this node instead of the whole menu. */
+function renderItemControl(item) {
+  const key = item.kind + ":" + item.id;
+  const inCart = state.cart[key];
+  if (!item.available) return "";
+  if (!inCart) return `<button class="qm-add" data-add="${key}">Add</button>`;
+  return `<div class="qm-stepper" data-key="${key}">
+      <button data-step="-1" aria-label="Remove one ${esc(item.name)}">−</button>
+      <span aria-live="polite">${inCart.qty}</span>
+      <button data-step="1" aria-label="Add one ${esc(item.name)}">+</button>
+    </div>`;
 }
 
 function findItem(key) {
@@ -154,10 +194,10 @@ function findItem(key) {
   return null;
 }
 
-function wireItemButtons() {
-  document.querySelectorAll("[data-add]").forEach((b) =>
+function wireItemButtons(root = document) {
+  root.querySelectorAll("[data-add]").forEach((b) =>
     b.addEventListener("click", () => { changeQty(b.dataset.add, 1); }));
-  document.querySelectorAll(".qm-stepper").forEach((st) =>
+  root.querySelectorAll(".qm-stepper").forEach((st) =>
     st.querySelectorAll("[data-step]").forEach((b) =>
       b.addEventListener("click", () => changeQty(st.dataset.key, Number(b.dataset.step)))));
 }
@@ -178,7 +218,15 @@ function changeQty(key, delta) {
       tax_rate: item.tax_rate, brand: item.brand, bottle_size: item.bottle_size, qty,
     };
   }
-  renderMenu();
+  // Repaint only this item's control. Re-rendering the whole menu here made
+  // every tap rebuild all sections and re-decode every image, which flickered
+  // and could throw away the customer's scroll position mid-order.
+  const cell = document.querySelector(`.qm-item-act[data-act="${key}"]`);
+  if (cell) {
+    cell.innerHTML = renderItemControl(item);
+    wireItemButtons(cell);
+  }
+  updateCartBar();
   if (document.getElementById("sheetOverlay").classList.contains("show")) openCart();
 }
 
