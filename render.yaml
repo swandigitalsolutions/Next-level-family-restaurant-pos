@@ -1,0 +1,45 @@
+# Render Blueprint for Next Level Family Restaurant Billing
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo to GitHub, then in the Render dashboard choose
+# "New +" -> "Blueprint" and point it at the repo. Render reads this file.
+# (Deploying manually as a normal Web Service? Copy the build/start commands
+#  and env vars below into the dashboard form - see DEPLOY.md.)
+#
+# ---------------------------------------------------------------------------
+# DATABASE
+# Set DATABASE_URL to a PostgreSQL connection string and the app stores all
+# data there (durable, survives restarts/redeploys). Recommended: a free
+# Supabase project - use its "Transaction pooler" connection URI. Without
+# DATABASE_URL the app falls back to the bundled SQLite file, which on the
+# free plan resets on every restart.
+# ---------------------------------------------------------------------------
+
+services:
+  - type: web
+    name: next-level-family-restaurant
+    runtime: python
+    plan: free
+    region: singapore        # closest Render region to India; change if you prefer
+    branch: main
+    buildCommand: "pip install -r backend/requirements.txt"
+    startCommand: "gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 2 --preload --timeout 60 --access-logfile - --error-logfile -"
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      - key: SECRET_KEY
+        generateValue: true          # Render generates a strong random value once
+      - key: DATABASE_URL
+        sync: false                  # paste your Supabase/Postgres URI in the dashboard
+      - key: RENDER
+        value: "true"                # enables Secure cookies + ProxyFix in app.py
+      - key: TZ
+        value: Asia/Kolkata          # local day for bill timestamps + dashboard
+      - key: RESTAURANT_NAME
+        value: Next Level Family Restaurant   # shown on the QR menu + printed bills
+      - key: PUBLIC_BASE_URL
+        sync: false                  # optional: set to https://<your-domain> so printed
+                                     # table QR codes point at the public site. Leave unset
+                                     # to use whatever host the staff browser came in on.

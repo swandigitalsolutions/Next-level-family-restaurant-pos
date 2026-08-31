@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Menu — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/qr-menu.css" />
+</head>
+<body>
+<div class="qm-wrap" id="app">
+  <div class="qm-message"><h2>Loading menu…</h2><p>One moment please.</p></div>
+</div>
+
+<div class="qm-cartbar" id="cartBar">
+  <div>
+    <div class="qm-cart-count" id="cartCount">0 items</div>
+    <div class="qm-cart-total" id="cartTotal">₹0.00</div>
+  </div>
+  <button id="viewCartBtn">View cart</button>
+</div>
+
+<div class="qm-sheet-overlay" id="sheetOverlay">
+  <div class="qm-sheet" id="sheet"></div>
+</div>
+
+<div class="qm-toast" id="qmToast"></div>
+
+<script src="../assets/menu-image-map.js" onerror="window.MENU_IMAGE_MAP={}"></script>
+<script src="../js/correct-food-image-map.js" onerror="window.CORRECT_FOOD_IMAGE_MAP={}"></script>
+<script src="../js/qr-menu.js"></script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Menu Studio — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/menu.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-title"><span class="eyebrow">CATALOG CONTROL</span><h1>Menu Studio</h1></div>
+      <div class="topbar-actions"><span class="live-pill"><span class="live-dot"></span> Catalog synced</span><div class="user-chip" id="userChip"></div></div>
+    </header>
+    <main class="content menu-content">
+      <section class="menu-hero reveal">
+        <div class="menu-hero-copy"><span class="eyebrow">NEXT LEVEL COLLECTION</span><h2>Make every item<br><em>look as good as it tastes.</em></h2><p>Curate the menu your team sells from — with clear categories, strong imagery, and pricing that stays easy to scan.</p></div>
+        <div class="menu-hero-visual"><img src="../assets/optimized/menu-reference.webp" alt="Signature Indian restaurant spread"><div class="hero-badge"><strong>Live menu</strong><span>Ready for service</span></div></div>
+      </section>
+      <section class="menu-overview reveal reveal-delay-1">
+        <div class="overview-stat"><span class="overview-icon">◒</span><div><strong id="menuFoodCount">—</strong><span>food items</span></div></div>
+        <div class="overview-stat"><span class="overview-icon amber">◐</span><div><strong id="menuAlcoholCount">—</strong><span>bar products</span></div></div>
+        <div class="overview-stat"><span class="overview-icon slate">▦</span><div><strong id="menuCategoryCount">—</strong><span>active categories</span></div></div>
+        <div class="overview-note"><span class="status-dot"></span><span>All catalog changes are live for billing</span></div>
+      </section>
+
+      <section class="menu-workspace reveal reveal-delay-2">
+        <div class="menu-tabs-wrap"><div class="menu-tabs"><button class="menu-tab active" data-tab="food-items">Food items <span id="foodTabCount">0</span></button><button class="menu-tab" data-tab="food-cats">Food categories</button><button class="menu-tab" data-tab="alcohol-items">Bar products <span id="alcoholTabCount">0</span></button><button class="menu-tab" data-tab="alcohol-cats">Bar categories</button></div><div class="workspace-hint">Click any card to edit its details</div></div>
+
+        <section class="menu-panel-section active" id="tab-food-items">
+          <div class="section-toolbar"><div><span class="eyebrow">FOOD LIBRARY</span><h3>Plates, pours & favourites</h3></div><div class="toolbar-actions"><input class="catalog-search" id="foodCatalogSearch" type="search" placeholder="Search food items…"><button class="btn btn-primary" id="focusFoodForm"><span class="btn-plus">+</span> Add food item</button></div></div>
+          <div class="add-panel panel" id="foodAddPanel"><div class="panel-title">Add food item</div><form class="form-inline" id="foodItemForm"><input name="name" placeholder="Item name" required /><select name="category_id" id="foodItemCategorySelect" required></select><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><button class="btn btn-primary" type="submit">Add item</button></form></div>
+          <div id="foodItemsBody" class="admin-item-grid"></div>
+        </section>
+
+        <section class="menu-panel-section" id="tab-food-cats">
+          <div class="section-toolbar"><div><span class="eyebrow">FOOD TAXONOMY</span><h3>Food categories</h3></div></div>
+          <div class="panel category-manager"><div class="panel-title">Add food category</div><form class="form-inline" id="foodCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="foodCatsBody"></tbody></table></div>
+        </section>
+
+        <section class="menu-panel-section" id="tab-alcohol-items">
+          <div class="section-toolbar"><div><span class="eyebrow">BAR LIBRARY</span><h3>Bar products & cocktails</h3></div><div class="toolbar-actions"><input class="catalog-search" id="alcoholCatalogSearch" type="search" placeholder="Search bar products…"><button class="btn btn-primary" id="focusAlcoholForm"><span class="btn-plus">+</span> Add product</button></div></div>
+          <div class="add-panel panel" id="alcoholAddPanel"><div class="panel-title">Add bar product</div><form class="form-inline form-inline-wide" id="alcoholItemForm"><input name="name" placeholder="Product name" required /><select name="category_id" id="alcoholItemCategorySelect" required></select><input name="brand" placeholder="Brand" /><input name="bottle_size" placeholder="Bottle size (e.g. 750ml)" /><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><input name="tax_rate" type="number" step="0.01" min="0" placeholder="Tax %" value="0" /><button class="btn btn-primary" type="submit">Add product</button></form></div>
+          <div id="alcoholItemsBody" class="admin-item-grid"></div>
+        </section>
+
+        <section class="menu-panel-section" id="tab-alcohol-cats">
+          <div class="section-toolbar"><div><span class="eyebrow">BAR TAXONOMY</span><h3>Bar categories</h3></div></div>
+          <div class="panel category-manager"><div class="panel-title">Add bar category</div><form class="form-inline" id="alcoholCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="alcoholCatsBody"></tbody></table></div>
+        </section>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="../assets/menu-image-map.js"></script>
+<script src="../js/correct-food-image-map.js"></script>
+<script src="../js/common.js"></script>
+<script src="../js/menu.js"></script>
+</body>
+</html>

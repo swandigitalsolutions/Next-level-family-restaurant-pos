@@ -1,0 +1,111 @@
+/* NEXT LEVEL FAMILY RESTAURANT — QR Ordering (staff screens) */
+
+.qr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.qr-card {
+  border: 1px solid var(--border, #e4e4e7);
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.qr-card h3 { margin: 0; font-size: 1rem; letter-spacing: .04em; }
+
+.qr-card .qr-frame {
+  background: #fff;
+  border: 1px solid #ececf0;
+  border-radius: 12px;
+  padding: 10px;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qr-card .qr-frame img,
+.qr-card .qr-frame svg { width: 100%; height: 100%; }
+
+.qr-card .qr-meta { font-size: .78rem; color: var(--muted, #71717a); word-break: break-all; }
+
+.qr-card-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.qr-card-actions .btn { flex: 1 1 auto; }
+
+.qr-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: .72rem; font-weight: 600; background: #eef2ff; color: #4338ca;
+}
+.qr-badge.is-new { background: #fef3c7; color: #92400e; }
+
+/* Live orders board */
+.orders-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.order-card {
+  border: 1px solid var(--border, #e4e4e7);
+  border-left: 4px solid #6366f1;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--surface, #fff);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.order-card.is-fresh { animation: ocArrive 1.8s cubic-bezier(.22,1,.32,1) 1; }
+@keyframes ocArrive {
+  0%   { box-shadow: 0 0 0 0 rgba(245,158,11,.55); background: #fff8ec; transform: scale(1.015); }
+  60%  { box-shadow: 0 0 0 12px rgba(245,158,11,0); background: #fffdf6; transform: none; }
+  100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); background: #fff; }
+}
+
+.order-card[data-status="NEW"]       { border-left-color: #f59e0b; }
+.order-card[data-status="ACCEPTED"]  { border-left-color: #3b82f6; }
+.order-card[data-status="PREPARING"] { border-left-color: #8b5cf6; }
+.order-card[data-status="READY"]     { border-left-color: #10b981; }
+.order-card[data-status="SERVED"]    { border-left-color: #9ca3af; opacity: .75; }
+.order-card[data-status="CANCELLED"] { border-left-color: #ef4444; opacity: .6; }
+
+.order-card .oc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.order-card .oc-table { font-weight: 700; font-size: 1.05rem; }
+.order-card .oc-no { font-size: .78rem; color: var(--muted, #71717a); }
+.order-card .oc-lines { margin: 0; padding: 0; list-style: none; font-size: .9rem; }
+.order-card .oc-lines li { display: flex; justify-content: space-between; padding: 2px 0; }
+.order-card .oc-total { font-weight: 700; border-top: 1px dashed #d4d4d8; padding-top: 6px; }
+.order-card .oc-note { font-size: .82rem; color: #92400e; background: #fffbeb; border-radius: 8px; padding: 6px 8px; }
+.order-card .oc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.order-card .oc-actions .btn { flex: 1 1 auto; font-size: .8rem; padding: 6px 10px; }
+.order-card .oc-status-pill {
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 10px; border-radius: 999px; background: #f4f4f5; color: #3f3f46;
+}
+
+.qr-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+.qr-toolbar .spacer { flex: 1 1 auto; }
+.qr-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; margin-right: 6px; animation: qrpulse 1.6s infinite; }
+@keyframes qrpulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* Printable QR cards */
+@media print {
+  .sidebar, .topbar, .qr-toolbar, .no-print { display: none !important; }
+  .app-shell, .main-area, .content { display: block !important; margin: 0 !important; padding: 0 !important; }
+  .print-sheet { display: grid !important; grid-template-columns: repeat(2, 1fr); gap: 0; }
+  .print-card {
+    break-inside: avoid; page-break-inside: avoid;
+    border: 1px dashed #999; margin: 0; padding: 24px 18px;
+    text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+    min-height: 46vh; justify-content: center;
+  }
+  .print-card .pc-mark { width: 34mm; height: 34mm; object-fit: contain; }
+  .print-card .pc-logo { font-weight: 800; letter-spacing: .12em; font-size: 1rem; color: #c8102e; }
+  .print-card .pc-table { font-size: 1.8rem; font-weight: 800; }
+  .print-card .pc-sub { font-size: .9rem; color: #333; }
+  .print-card .pc-qr { width: 60mm; height: 60mm; }
+  .print-card .pc-foot { font-size: .8rem; color: #555; }
+}
+.print-sheet { display: none; }

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Live Orders — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/qr.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Live Orders</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content">
+      <div class="panel">
+        <div class="qr-toolbar">
+          <span><span class="qr-live-dot"></span><span id="autoLabel">Auto-refreshing</span></span>
+          <select id="statusFilter">
+            <option value="active">Active (not served/cancelled)</option>
+            <option value="">All today</option>
+            <option value="NEW">New</option>
+            <option value="ACCEPTED">Accepted</option>
+            <option value="PREPARING">Preparing</option>
+            <option value="READY">Ready</option>
+            <option value="SERVED">Served</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+          <div class="spacer"></div>
+          <button class="btn btn-primary btn-sm" id="soundToggle">🔔 Sound on</button>
+          <button class="btn btn-outline btn-sm" id="refreshBtn">Refresh now</button>
+        </div>
+        <div class="orders-board" id="ordersBoard"></div>
+        <div id="ordersEmpty" class="empty-state" style="display:none;">No orders yet</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/qr-orders.js"></script>
+</body>
+</html>

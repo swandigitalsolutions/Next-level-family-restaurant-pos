@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Orders & Bills — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/orders.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Orders &amp; Bills</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content">
+      <div class="panel">
+        <div class="orders-toolbar">
+          <input type="search" id="searchBox" placeholder="Search by bill no. or customer..." />
+          <select id="typeFilter">
+            <option value="all">All Types</option>
+            <option value="FOOD">Food</option>
+            <option value="ALCOHOL">Alcohol</option>
+          </select>
+          <input type="date" id="dateFilter" />
+          <button class="btn btn-outline btn-sm" id="clearFiltersBtn">Clear Filters</button>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Bill No.</th>
+              <th>Type</th>
+              <th>Customer</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ordersBody"></tbody>
+        </table>
+        <div id="ordersEmpty" class="empty-state" style="display:none;">No orders found</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- View Bill Modal -->
+<div class="modal-overlay" id="viewModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="viewModalTitle">Bill Details</h2>
+      <span class="close-x" id="closeViewModalBtn">&times;</span>
+    </div>
+    <div class="modal-body" id="viewModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="closeViewBtn">Close</button>
+      <button class="btn btn-primary" id="printViewBtn">Print</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script src="../js/common.js"></script>
+<script src="../js/orders.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.DS_Store
+.env
+backend/.env
+
+# Local Python virtualenv
+.venv/
+venv/
+
+# SQLite write-ahead-log sidecar files (created at runtime by WAL mode)
+*.db-wal
+*.db-shm
+*.db-journal

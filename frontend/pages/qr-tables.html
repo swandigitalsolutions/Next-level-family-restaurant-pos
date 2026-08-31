@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tables &amp; QR Codes — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/qr.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Tables &amp; QR Codes</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content">
+      <div class="panel">
+        <div class="qr-toolbar">
+          <span><span class="qr-live-dot"></span>15 QR tables</span>
+          <div class="spacer"></div>
+          <button class="btn btn-outline btn-sm" id="printAllBtn">Print all QR cards</button>
+        </div>
+        <div class="qr-grid" id="tablesGrid"></div>
+        <div id="tablesEmpty" class="empty-state" style="display:none;">No tables found</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- View / print single QR -->
+<div class="modal-overlay" id="qrModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="qrModalTitle">Table QR</h2>
+      <span class="close-x" id="qrModalClose">&times;</span>
+    </div>
+    <div class="modal-body" id="qrModalBody" style="text-align:center;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="qrDownloadBtn">Download SVG</button>
+      <button class="btn btn-outline" id="qrRegenBtn">Regenerate</button>
+      <button class="btn btn-primary" id="qrPrintBtn">Print card</button>
+    </div>
+  </div>
+</div>
+
+<div class="print-sheet" id="printSheet"></div>
+
+<script src="../js/common.js"></script>
+<script src="../js/qr-tables.js"></script>
+</body>
+</html>

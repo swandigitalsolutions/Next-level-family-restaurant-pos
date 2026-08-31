@@ -1,0 +1,1441 @@
+[
+  {
+    "kind": "alcohol",
+    "category": "Beer",
+    "name": "Budweiser",
+    "asset": "../assets/menu-items/001-alcohol-budweiser.jpg",
+    "source_file": "FEshV4l1kB4y.webp",
+    "tags": [
+      "beer",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Beer",
+    "name": "Corona",
+    "asset": "../assets/menu-items/002-alcohol-corona.jpg",
+    "source_file": "guPUN8PUiHiT.png",
+    "tags": [
+      "beer",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Beer",
+    "name": "Kingfisher Premium",
+    "asset": "../assets/menu-items/003-alcohol-kingfisher-premium.jpg",
+    "source_file": "xCMUv3q4HJjW.jpg",
+    "tags": [
+      "beer",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Beer",
+    "name": "Kingfisher Strong",
+    "asset": "../assets/menu-items/004-alcohol-kingfisher-strong.jpg",
+    "source_file": "z2RVT2wyADM0.jpg",
+    "tags": [
+      "beer",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Beer",
+    "name": "Tuborg",
+    "asset": "../assets/menu-items/005-alcohol-tuborg.jpg",
+    "source_file": "1bM5D2tdtLQo.jpg",
+    "tags": [
+      "whisky",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Brandy",
+    "name": "Honey Bee",
+    "asset": "../assets/menu-items/006-alcohol-honey-bee.jpg",
+    "source_file": "3t27Cjs9OON4.jpeg",
+    "tags": [
+      "bar",
+      "liquor"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Brandy",
+    "name": "Mansion House",
+    "asset": "../assets/menu-items/007-alcohol-mansion-house.jpg",
+    "source_file": "Qj9aQPxTLuKa.jpg",
+    "tags": [
+      "liquor",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Cocktails / Mixers",
+    "name": "Margarita",
+    "asset": "../assets/menu-items/008-alcohol-margarita.jpg",
+    "source_file": "eh1ktviGMkeu.jpg",
+    "tags": [
+      "margarita",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Cocktails / Mixers",
+    "name": "Mojito",
+    "asset": "../assets/menu-items/009-alcohol-mojito.jpg",
+    "source_file": "j53H9LTYLJmY.jpg",
+    "tags": [
+      "margarita",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Cocktails / Mixers",
+    "name": "Screwdriver",
+    "asset": "../assets/menu-items/010-alcohol-screwdriver.jpg",
+    "source_file": "s8NRZwkTZh3j.jpg",
+    "tags": [
+      "margarita",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Cocktails / Mixers",
+    "name": "Soda / Mixer",
+    "asset": "../assets/menu-items/011-alcohol-soda-mixer.jpg",
+    "source_file": "5FThTBDmGScJ.png",
+    "tags": [
+      "mojito",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Gin",
+    "name": "Bombay Sapphire",
+    "asset": "../assets/menu-items/012-alcohol-bombay-sapphire.jpg",
+    "source_file": "5yD8bOwCcy7D.jpeg",
+    "tags": [
+      "gin",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Gin",
+    "name": "Gordon's",
+    "asset": "../assets/menu-items/013-alcohol-gordon-s.jpg",
+    "source_file": "Pb3Tky1BRxbT.jpg",
+    "tags": [
+      "gin",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Rum",
+    "name": "Bacardi White",
+    "asset": "../assets/menu-items/014-alcohol-bacardi-white.jpg",
+    "source_file": "xbIfQXDcmynD.jpg",
+    "tags": [
+      "gin",
+      "rum",
+      "tequila",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Rum",
+    "name": "Captain Morgan",
+    "asset": "../assets/menu-items/015-alcohol-captain-morgan.jpg",
+    "source_file": "8LRNSTM3JqHB.jpg",
+    "tags": [
+      "wine",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Rum",
+    "name": "Old Monk",
+    "asset": "../assets/menu-items/016-alcohol-old-monk.jpg",
+    "source_file": "AtDxXcIXTkxl.webp",
+    "tags": [
+      "cocktail",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Tequila",
+    "name": "Jose Cuervo",
+    "asset": "../assets/menu-items/017-alcohol-jose-cuervo.jpg",
+    "source_file": "BPKUrQUj7yJA.jpg",
+    "tags": [
+      "tequila",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Vodka",
+    "name": "Absolut",
+    "asset": "../assets/menu-items/018-alcohol-absolut.jpg",
+    "source_file": "VUz0wLfU0SNu.jpeg",
+    "tags": [
+      "vodka",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Vodka",
+    "name": "Grey Goose",
+    "asset": "../assets/menu-items/019-alcohol-grey-goose.jpg",
+    "source_file": "Lv3AQO8C9iWQ.jpg",
+    "tags": [
+      "whisky",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Vodka",
+    "name": "Magic Moments",
+    "asset": "../assets/menu-items/020-alcohol-magic-moments.jpg",
+    "source_file": "OKsVlqSh3rKH.jpg",
+    "tags": [
+      "wine",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Vodka",
+    "name": "Smirnoff",
+    "asset": "../assets/menu-items/021-alcohol-smirnoff.jpg",
+    "source_file": "WTBH4lKnkpye.jpg",
+    "tags": [
+      "bar",
+      "liquor"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Blenders Pride",
+    "asset": "../assets/menu-items/022-alcohol-blenders-pride.jpg",
+    "source_file": "Yjcv3cB8cpKn.jpg",
+    "tags": [
+      "whisky",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Glenfiddich 12yr",
+    "asset": "../assets/menu-items/023-alcohol-glenfiddich-12yr.jpg",
+    "source_file": "WwswuXDZvpKW.jpeg",
+    "tags": [
+      "gin",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Jack Daniel's",
+    "asset": "../assets/menu-items/024-alcohol-jack-daniel-s.jpg",
+    "source_file": "f0egaZpIWiaD.webp",
+    "tags": [
+      "wine",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Johnnie Walker Black Label",
+    "asset": "../assets/menu-items/025-alcohol-johnnie-walker-black-label.jpg",
+    "source_file": "j3xl96PDQCpf.jpg",
+    "tags": [
+      "liquor",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Royal Challenge",
+    "asset": "../assets/menu-items/026-alcohol-royal-challenge.jpg",
+    "source_file": "jLfBkHbVHAS8.jpg",
+    "tags": [
+      "wine",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Whisky",
+    "name": "Signature",
+    "asset": "../assets/menu-items/027-alcohol-signature.jpg",
+    "source_file": "ouPHYFY2wmUO.jpg",
+    "tags": [
+      "wine",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Wine",
+    "name": "Jacob's Creek",
+    "asset": "../assets/menu-items/028-alcohol-jacob-s-creek.jpg",
+    "source_file": "sHS3ow5HamHT.webp",
+    "tags": [
+      "cocktail",
+      "bar"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Wine",
+    "name": "Sula Red Wine",
+    "asset": "../assets/menu-items/029-alcohol-sula-red-wine.jpg",
+    "source_file": "46umQQffggps.jpg",
+    "tags": [
+      "colorful",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "alcohol",
+    "category": "Wine",
+    "name": "Sula White Wine",
+    "asset": "../assets/menu-items/030-alcohol-sula-white-wine.jpg",
+    "source_file": "G2S3p7SSwyWL.jpg",
+    "tags": [
+      "mojito",
+      "cocktail"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Buttermilk",
+    "asset": "../assets/menu-items/031-food-buttermilk.jpg",
+    "source_file": "5OVhc8hFQKfP.jpg",
+    "tags": [
+      "coffee",
+      "chai",
+      "beverage"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Cold Coffee",
+    "asset": "../assets/menu-items/032-food-cold-coffee.jpg",
+    "source_file": "xIoijGhsIG6R.jpg",
+    "tags": [
+      "chai",
+      "coffee",
+      "beverage"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Filter Coffee",
+    "asset": "../assets/menu-items/033-food-filter-coffee.jpg",
+    "source_file": "pNrHCTQkIFhN.jpg",
+    "tags": [
+      "chai",
+      "beverage"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Fresh Juice",
+    "asset": "../assets/menu-items/034-food-fresh-juice.jpg",
+    "source_file": "fo68tMz463ZD.jpg",
+    "tags": [
+      "lassi",
+      "beverage"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Fresh Lime Soda",
+    "asset": "../assets/menu-items/035-food-fresh-lime-soda.jpg",
+    "source_file": "uLALnO7C7sTb.jpg",
+    "tags": [
+      "lassi",
+      "beverage"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Mango Lassi",
+    "asset": "../assets/menu-items/036-food-mango-lassi.jpg",
+    "source_file": "0dPoagwPz2S3.jpg",
+    "tags": [
+      "chutney",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Masala Chai",
+    "asset": "../assets/menu-items/037-food-masala-chai.jpg",
+    "source_file": "0tNcO4flpdwh.jpg",
+    "tags": [
+      "dal",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Mineral Water",
+    "asset": "../assets/menu-items/038-food-mineral-water.jpg",
+    "source_file": "2KTqTWsrKqTU.jpg",
+    "tags": [
+      "general",
+      "food"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Soft Drink",
+    "asset": "../assets/menu-items/039-food-soft-drink.jpg",
+    "source_file": "41hvfYzJX3z0.jpg",
+    "tags": [
+      "mutton",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Beverages",
+    "name": "Sweet Lassi",
+    "asset": "../assets/menu-items/040-food-sweet-lassi.jpg",
+    "source_file": "4oT57wkosUZv.jpg",
+    "tags": [
+      "seafood",
+      "fish",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Butter Naan",
+    "asset": "../assets/menu-items/041-food-butter-naan.jpg",
+    "source_file": "dVwyv9itBlTZ.jpg",
+    "tags": [
+      "naan",
+      "roti",
+      "bread"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Cheese Naan",
+    "asset": "../assets/menu-items/042-food-cheese-naan.jpg",
+    "source_file": "wpdbRvlVEjzI.jpg",
+    "tags": [
+      "naan",
+      "bread"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Garlic Naan",
+    "asset": "../assets/menu-items/043-food-garlic-naan.jpg",
+    "source_file": "G4AvvjRW0WWn.jpg",
+    "tags": [
+      "roti",
+      "bread"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Kulcha",
+    "asset": "../assets/menu-items/044-food-kulcha.jpg",
+    "source_file": "fizPRR1GvECC.jpg",
+    "tags": [
+      "dosa",
+      "bread",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Laccha Paratha",
+    "asset": "../assets/menu-items/045-food-laccha-paratha.jpg",
+    "source_file": "5Im9IcKvx5V1.jpg",
+    "tags": [
+      "sweet",
+      "dessert"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Missi Roti",
+    "asset": "../assets/menu-items/046-food-missi-roti.jpg",
+    "source_file": "5eDhOeWp2KIn.jpg",
+    "tags": [
+      "fish",
+      "seafood",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Plain Roti",
+    "asset": "../assets/menu-items/047-food-plain-roti.jpg",
+    "source_file": "5qDAakhskEsT.jpg",
+    "tags": [
+      "prawn",
+      "seafood",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Breads",
+    "name": "Tandoori Roti",
+    "asset": "../assets/menu-items/048-food-tandoori-roti.jpg",
+    "source_file": "67Bcs4G0luXf.jpg",
+    "tags": [
+      "noodles",
+      "chicken"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Gajar Halwa",
+    "asset": "../assets/menu-items/049-food-gajar-halwa.jpg",
+    "source_file": "8Sr1ePIGTflh.jpg",
+    "tags": [
+      "jalebi",
+      "sweet",
+      "dessert"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Gulab Jamun (2pc)",
+    "asset": "../assets/menu-items/050-food-gulab-jamun-2pc.jpg",
+    "source_file": "dZzXkTLe5tak.jpg",
+    "tags": [
+      "gulab",
+      "sweet",
+      "dessert"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Ice Cream Scoop",
+    "asset": "../assets/menu-items/051-food-ice-cream-scoop.jpg",
+    "source_file": "A4r49iD82ubn.jpg",
+    "tags": [
+      "dessert",
+      "sweet"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Jalebi",
+    "asset": "../assets/menu-items/052-food-jalebi.jpg",
+    "source_file": "gAgRyOkfRKuA.jpg",
+    "tags": [
+      "sweet",
+      "dessert"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Kheer",
+    "asset": "../assets/menu-items/053-food-kheer.jpg",
+    "source_file": "8Uh7hP28u8jR.jpg",
+    "tags": [
+      "dal",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Kulfi",
+    "asset": "../assets/menu-items/054-food-kulfi.jpg",
+    "source_file": "94hL8ACS9nGo.jpg",
+    "tags": [
+      "rice",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Desserts",
+    "name": "Rasmalai (2pc)",
+    "asset": "../assets/menu-items/055-food-rasmalai-2pc.jpg",
+    "source_file": "96FvRKgNmpVZ.jpg",
+    "tags": [
+      "prawn",
+      "seafood",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Butter Chicken",
+    "asset": "../assets/menu-items/056-food-butter-chicken.jpg",
+    "source_file": "T8cVu8WbdRM4.jpg",
+    "tags": [
+      "butter",
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Chicken Chettinad",
+    "asset": "../assets/menu-items/057-food-chicken-chettinad.jpg",
+    "source_file": "Bq4M5QY8bwmh.jpg",
+    "tags": [
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Chicken Curry",
+    "asset": "../assets/menu-items/058-food-chicken-curry.jpg",
+    "source_file": "S35LszWyt5Md.jpg",
+    "tags": [
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Chicken Kadai",
+    "asset": "../assets/menu-items/059-food-chicken-kadai.jpg",
+    "source_file": "TOwR4zKwXLp1.jpg",
+    "tags": [
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Egg Curry",
+    "asset": "../assets/menu-items/060-food-egg-curry.jpg",
+    "source_file": "bcXYgi7SejMy.jpg",
+    "tags": [
+      "kofta",
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Fish Curry",
+    "asset": "../assets/menu-items/061-food-fish-curry.jpg",
+    "source_file": "HDyRka71b6BC.jpg",
+    "tags": [
+      "prawn",
+      "seafood",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Goan Fish Curry",
+    "asset": "../assets/menu-items/062-food-goan-fish-curry.jpg",
+    "source_file": "bcYouPPdvOLW.jpg",
+    "tags": [
+      "prawn",
+      "seafood",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Mutton Curry",
+    "asset": "../assets/menu-items/063-food-mutton-curry.jpg",
+    "source_file": "hnDrD9SzLPPo.jpg",
+    "tags": [
+      "kofta",
+      "mutton",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Mutton Rogan Josh",
+    "asset": "../assets/menu-items/064-food-mutton-rogan-josh.jpg",
+    "source_file": "tgVwsXjae5gX.jpg",
+    "tags": [
+      "mutton",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Non Veg",
+    "name": "Prawn Masala",
+    "asset": "../assets/menu-items/065-food-prawn-masala.jpg",
+    "source_file": "IXDUtGnto5G8.jpg",
+    "tags": [
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Aloo Gobi",
+    "asset": "../assets/menu-items/066-food-aloo-gobi.jpg",
+    "source_file": "LHbXhXbFg9Nr.jpg",
+    "tags": [
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Chana Masala",
+    "asset": "../assets/menu-items/067-food-chana-masala.jpg",
+    "source_file": "UtTh9khBBqzn.jpg",
+    "tags": [
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Dal Makhani",
+    "asset": "../assets/menu-items/068-food-dal-makhani.jpg",
+    "source_file": "kvM7DjMu5OUC.jpg",
+    "tags": [
+      "dal",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Kadai Paneer",
+    "asset": "../assets/menu-items/069-food-kadai-paneer.jpg",
+    "source_file": "mdzziCIUNBUZ.jpg",
+    "tags": [
+      "paneer",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Malai Kofta",
+    "asset": "../assets/menu-items/070-food-malai-kofta.jpg",
+    "source_file": "arQt7hOhdnZ1.jpg",
+    "tags": [
+      "kofta",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Mixed Veg Curry",
+    "asset": "../assets/menu-items/071-food-mixed-veg-curry.jpg",
+    "source_file": "pH2nrPrLHhhP.jpg",
+    "tags": [
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Palak Paneer",
+    "asset": "../assets/menu-items/072-food-palak-paneer.jpg",
+    "source_file": "yxkmn4N5qAwK.jpg",
+    "tags": [
+      "paneer",
+      "veg",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Paneer Butter Masala",
+    "asset": "../assets/menu-items/073-food-paneer-butter-masala.jpg",
+    "source_file": "uJwXj3NURIJc.jpg",
+    "tags": [
+      "paneer",
+      "tikka",
+      "starter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Veg Kadai",
+    "asset": "../assets/menu-items/074-food-veg-kadai.jpg",
+    "source_file": "IJumLD7vVIav.jpg",
+    "tags": [
+      "noodles",
+      "veg"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Main Course - Veg",
+    "name": "Veg Kolhapuri",
+    "asset": "../assets/menu-items/075-food-veg-kolhapuri.jpg",
+    "source_file": "MV3nVUMEGetO.jpg",
+    "tags": [
+      "platter",
+      "south",
+      "veg"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Chicken Biryani",
+    "asset": "../assets/menu-items/076-food-chicken-biryani.jpg",
+    "source_file": "KxynfgLoanDL.jpg",
+    "tags": [
+      "biryani",
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Chicken Fried Rice",
+    "asset": "../assets/menu-items/077-food-chicken-fried-rice.jpg",
+    "source_file": "c3vYVCgOmsXK.jpg",
+    "tags": [
+      "fried-rice",
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Curd Rice",
+    "asset": "../assets/menu-items/078-food-curd-rice.jpg",
+    "source_file": "LV3Z7vetR2ww.jpg",
+    "tags": [
+      "biryani",
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Egg Biryani",
+    "asset": "../assets/menu-items/079-food-egg-biryani.jpg",
+    "source_file": "WYmv4V9uxULa.jpg",
+    "tags": [
+      "biryani",
+      "rice",
+      "chicken"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Jeera Rice",
+    "asset": "../assets/menu-items/080-food-jeera-rice.jpg",
+    "source_file": "esHhr7o9JzXJ.jpg",
+    "tags": [
+      "biryani",
+      "rice",
+      "chicken"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Mutton Biryani",
+    "asset": "../assets/menu-items/081-food-mutton-biryani.jpg",
+    "source_file": "fs7S09OcqPaR.jpg",
+    "tags": [
+      "butter",
+      "chicken",
+      "curry"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Prawn Biryani",
+    "asset": "../assets/menu-items/082-food-prawn-biryani.jpg",
+    "source_file": "9QdENzdZWRFt.jpg",
+    "tags": [
+      "platter",
+      "nonveg",
+      "starter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Veg Biryani",
+    "asset": "../assets/menu-items/083-food-veg-biryani.jpg",
+    "source_file": "fVyjq70g7pqI.jpg",
+    "tags": [
+      "biryani",
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Rice & Biryani",
+    "name": "Veg Fried Rice",
+    "asset": "../assets/menu-items/084-food-veg-fried-rice.jpg",
+    "source_file": "t36fiq3Niexs.jpg",
+    "tags": [
+      "fried-rice",
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Chicken Clear Soup",
+    "asset": "../assets/menu-items/085-food-chicken-clear-soup.jpg",
+    "source_file": "CnOfek0BWuLJ.jpg",
+    "tags": [
+      "soup"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Hot & Sour Soup",
+    "asset": "../assets/menu-items/086-food-hot-sour-soup.jpg",
+    "source_file": "DyJfgwaF9t86.jpg",
+    "tags": [
+      "soup"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Manchow Soup",
+    "asset": "../assets/menu-items/087-food-manchow-soup.jpg",
+    "source_file": "bJjap5uHnIun.jpg",
+    "tags": [
+      "noodles",
+      "chicken"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Mutton Soup",
+    "asset": "../assets/menu-items/088-food-mutton-soup.jpg",
+    "source_file": "9nIVzxVPTz62.jpg",
+    "tags": [
+      "chicken",
+      "main"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Sweet Corn Soup",
+    "asset": "../assets/menu-items/089-food-sweet-corn-soup.jpg",
+    "source_file": "Y9CENzkcapGR.jpg",
+    "tags": [
+      "soup"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Soups",
+    "name": "Tomato Soup",
+    "asset": "../assets/menu-items/090-food-tomato-soup.jpg",
+    "source_file": "CiOJpygEnOPo.jpg",
+    "tags": [
+      "idli",
+      "vada",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Idli (2pc)",
+    "asset": "../assets/menu-items/091-food-idli-2pc.jpg",
+    "source_file": "TQbv9kvpXhjg.jpg",
+    "tags": [
+      "idli",
+      "dosa",
+      "vada",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Masala Dosa",
+    "asset": "../assets/menu-items/092-food-masala-dosa.jpg",
+    "source_file": "dp9Z4mhcaMmP.jpg",
+    "tags": [
+      "idli",
+      "vada",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Medu Vada",
+    "asset": "../assets/menu-items/093-food-medu-vada.jpg",
+    "source_file": "Ee2ICjEKoMmY.jpg",
+    "tags": [
+      "dosa",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Plain Dosa",
+    "asset": "../assets/menu-items/094-food-plain-dosa.jpg",
+    "source_file": "Kl7mvi84ef2n.jpg",
+    "tags": [
+      "dosa",
+      "south"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Pongal",
+    "asset": "../assets/menu-items/095-food-pongal.jpg",
+    "source_file": "CwC2HvRQBk5M.jpg",
+    "tags": [
+      "general",
+      "platter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Rava Dosa",
+    "asset": "../assets/menu-items/096-food-rava-dosa.jpg",
+    "source_file": "DJGdQH5OstYu.jpg",
+    "tags": [
+      "platter",
+      "starter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Uttapam",
+    "asset": "../assets/menu-items/097-food-uttapam.jpg",
+    "source_file": "Dd7HQyeuNVH1.jpg",
+    "tags": [
+      "general",
+      "food"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "South Indian",
+    "name": "Vada (2pc)",
+    "asset": "../assets/menu-items/098-food-vada-2pc.jpg",
+    "source_file": "FLsj21Whlxva.jpg",
+    "tags": [
+      "general",
+      "food"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Chicken 65",
+    "asset": "../assets/menu-items/099-food-chicken-65.jpg",
+    "source_file": "dQO20sO437hu.jpg",
+    "tags": [
+      "chicken65",
+      "chicken",
+      "starter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Chicken Lollipop",
+    "asset": "../assets/menu-items/100-food-chicken-lollipop.jpg",
+    "source_file": "IEZrT4maISkh.jpg",
+    "tags": [
+      "samosa",
+      "starter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Chilli Paneer",
+    "asset": "../assets/menu-items/101-food-chilli-paneer.jpg",
+    "source_file": "XssHp62dNcWQ.jpg",
+    "tags": [
+      "thali",
+      "veg",
+      "platter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Corn Cheese Balls",
+    "asset": "../assets/menu-items/102-food-corn-cheese-balls.jpg",
+    "source_file": "PJKgE1Iqf7UI.jpg",
+    "tags": [
+      "starter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Fish Fingers",
+    "asset": "../assets/menu-items/103-food-fish-fingers.jpg",
+    "source_file": "G3eq73TMnSPS.jpg",
+    "tags": [
+      "rice"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Gobi Manchurian",
+    "asset": "../assets/menu-items/104-food-gobi-manchurian.jpg",
+    "source_file": "PRGa14m1rA2B.webp",
+    "tags": [
+      "starter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Mutton Seekh Kebab",
+    "asset": "../assets/menu-items/105-food-mutton-seekh-kebab.jpg",
+    "source_file": "P25cdlFsbuX1.jpg",
+    "tags": [
+      "platter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Paneer Tikka",
+    "asset": "../assets/menu-items/106-food-paneer-tikka.jpg",
+    "source_file": "nZnrJQOMyDmD.jpg",
+    "tags": [
+      "thali",
+      "veg",
+      "platter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Prawn Koliwada",
+    "asset": "../assets/menu-items/107-food-prawn-koliwada.jpg",
+    "source_file": "TeWgZKBD74T4.jpg",
+    "tags": [
+      "chicken",
+      "starter"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  },
+  {
+    "kind": "food",
+    "category": "Starters",
+    "name": "Veg Spring Roll",
+    "asset": "../assets/menu-items/108-food-veg-spring-roll.jpg",
+    "source_file": "bCyA9bXWQYPt.jpg",
+    "tags": [
+      "samosa",
+      "starter",
+      "snack"
+    ],
+    "source_title": "Curated real internet image-search asset",
+    "source_page": ""
+  }
+]

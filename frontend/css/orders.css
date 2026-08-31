@@ -1,0 +1,87 @@
+.orders-toolbar{
+  display:flex;
+  gap:10px;
+  padding:16px;
+  border-bottom:1px solid var(--border);
+  flex-wrap:wrap;
+}
+.orders-toolbar input[type="search"]{flex:2;min-width:200px;}
+.orders-toolbar select{flex:1;min-width:130px;}
+.orders-toolbar input[type="date"]{flex:1;min-width:150px;}
+
+.view-link{
+  background:none;
+  border:none;
+  color:var(--primary);
+  font-weight:600;
+  font-size:12.5px;
+  cursor:pointer;
+}
+.view-link:hover{text-decoration:underline;}
+
+/* Bill detail modal content (shared look with billing confirm modal) */
+.confirm-meta{font-size:12.5px;color:var(--muted);margin-bottom:10px;}
+.confirm-meta div{margin-bottom:3px;}
+.confirm-items{
+  border-top:1px dashed var(--border);
+  border-bottom:1px dashed var(--border);
+  padding:8px 0;
+  margin:8px 0;
+}
+.confirm-items .ci-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:12.5px;
+  padding:3px 0;
+}
+.t-row{
+  display:flex;
+  justify-content:space-between;
+  padding:3px 0;
+  font-size:12.5px;
+  color:var(--muted);
+}
+.t-row.grand{
+  font-size:16px;
+  font-weight:700;
+  color:var(--text);
+  border-top:1px solid var(--border);
+  margin-top:6px;
+  padding-top:9px;
+}
+
+#printArea{display:none;}
+@media print{
+  body *{visibility:hidden;}
+  #printArea, #printArea *{visibility:visible;}
+  #printArea{
+    position:fixed;top:0;left:0;
+    width:80mm;
+    padding:8px;
+    font-family:'Courier New', monospace;
+    display:block !important;
+  }
+}
+
+/* Receipt print darkness — see billing.css for the reasoning. */
+@media print{
+  #printArea{
+    color:#000!important;
+    font-weight:700!important;
+    -webkit-font-smoothing:none;
+    text-rendering:geometricPrecision;
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
+  #printArea *{
+    color:#000!important;
+    font-weight:700!important;
+    -webkit-text-stroke:.26px #000;
+    text-shadow:0 0 .01px #000;
+    opacity:1!important;
+  }
+  #printArea div[style*="dashed"]{border-color:#000!important;border-style:solid!important;border-width:0}
+  #printArea div[style*="border-bottom"]{border-bottom:1.4px solid #000!important}
+  #printArea div[style*="border-top"]{border-top:1.4px solid #000!important}
+  #printArea div[style*="font-weight:bold"]{-webkit-text-stroke:.5px #000;font-weight:900!important}
+}
