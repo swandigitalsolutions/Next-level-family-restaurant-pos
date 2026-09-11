@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Website Orders — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/qr.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Website Orders</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content">
+      <div class="panel">
+        <div class="qr-toolbar">
+          <span><span class="qr-live-dot"></span><span>Realtime</span></span>
+          <input type="search" id="searchBox" placeholder="Order ID (WEB-000123), name or phone" autocomplete="off" style="min-width:280px;" />
+          <select id="statusFilter">
+            <option value="active">Active (confirmed, not completed)</option>
+            <option value="">All recent</option>
+            <option value="PENDING_PAYMENT">Awaiting payment</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="PREPARING">Preparing</option>
+            <option value="READY">Ready</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="PAYMENT_FAILED">Payment failed</option>
+          </select>
+          <div class="spacer"></div>
+          <button class="btn btn-primary btn-sm" id="soundToggle">🔔 Sound on</button>
+        </div>
+        <div class="orders-board" id="ordersBoard"></div>
+        <div id="ordersEmpty" class="empty-state" style="display:none;">No website orders yet</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Add Items modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="addModalTitle">Add items</h2>
+      <button class="close-x" type="button" id="addModalClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="search" id="addSearch" placeholder="Search the menu" autocomplete="off" />
+      <div id="addPicker" class="add-picker"></div>
+      <div id="addCart" class="add-cart"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" type="button" id="addCancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="addConfirm">Add to order</button>
+    </div>
+  </div>
+</div>
+
+<div id="printArea"></div>
+
+<script src="../assets/menu-image-map.js"></script>
+<script src="../js/correct-food-image-map.js"></script>
+<script src="../js/page-gate.js"></script>
+<script type="module" src="../js/common.js"></script>
+<script type="module" src="../js/website-orders.js"></script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/login.css" />
+</head>
+<body>
+<div class="auth">
+  <!-- Brand / visual side -->
+  <aside class="auth-aside">
+    <div class="auth-aside-inner">
+      <div class="auth-brand">
+        <div class="auth-mark"><img src="../assets/brand/next-level-logo.jpeg" alt="Next Level Family Restaurant" /></div>
+        <div class="auth-brand-copy">
+          <span class="b1">NEXT LEVEL</span>
+          <span class="b2">FAMILY RESTAURANT</span>
+        </div>
+      </div>
+      <div class="auth-pitch">
+        <h2>Run the whole floor from one calm screen.</h2>
+        <p>Tables, menu, bar, QR orders and every bill — organised, fast, and always in sync.</p>
+      </div>
+      <ul class="auth-points">
+        <li><span></span> Live table &amp; QR ordering</li>
+        <li><span></span> Food &amp; bar billing with tax presets</li>
+        <li><span></span> Daily sales, top items &amp; payments</li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Form side -->
+  <main class="auth-main">
+    <div class="auth-card">
+      <div class="auth-card-head">
+        <span class="eyebrow">Service Control Centre</span>
+        <h1>Welcome back</h1>
+        <p>Sign in to manage the floor, the menu, and every bill.</p>
+      </div>
+
+      <form id="loginForm" novalidate>
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" placeholder="Enter your username" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required />
+        </div>
+        <div id="loginError" class="auth-error" role="alert"></div>
+        <button class="btn btn-primary btn-block auth-submit" id="loginBtn" type="submit">
+          Enter workspace <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+    </div>
+    <p class="auth-foot">Next Level Family Restaurant · Secure staff sign-in</p>
+  </main>
+</div>
+<script src="../js/page-gate.js"></script>
+  <script type="module" src="../js/common.js"></script>
+<script type="module" src="../js/login.js"></script>
+</body>
+</html>

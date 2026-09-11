@@ -89,6 +89,7 @@ export class ApiStack extends cdk.Stack {
       ["qrOrdersAdmin", "callable/qrOrdersAdmin.ts"],
       ["websiteOrdersAdmin", "callable/websiteOrdersAdmin.ts"],
       ["dashboard", "callable/dashboard.ts"],
+      ["queries", "callable/queries.ts"],
     ];
     for (const [routeId, entry] of callables) {
       const fn = mkFn(routeId, entry, {
