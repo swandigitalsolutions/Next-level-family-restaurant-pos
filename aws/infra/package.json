@@ -1,0 +1,21 @@
+{
+  "name": "nextlevel-pos-infra",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy --all",
+    "bootstrap": "cdk bootstrap"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2.150.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.150.0",
+    "constructs": "^10.3.0"
+  }
+}
