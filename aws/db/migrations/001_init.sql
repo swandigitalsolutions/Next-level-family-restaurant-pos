@@ -217,8 +217,15 @@ CREATE TABLE audit_log (
   entity_id    text,
   details      jsonb,
   created_at   timestamptz NOT NULL DEFAULT now(),
-  legacy_id    integer
+  legacy_id    integer,
+  -- ETL re-run safety: every migrated row carries the SOURCE Firestore doc
+  -- id (regardless of whether it also has a legacyId — most runtime-created
+  -- audit rows won't) so migrate-from-firestore.mjs's INSERT is idempotent
+  -- via ON CONFLICT no matter when the row was created relative to
+  -- migration. NULL for rows created directly by this Postgres app post-cutover.
+  source_doc_id text
 );
+CREATE UNIQUE INDEX audit_log_source_doc_id_uq ON audit_log (source_doc_id) WHERE source_doc_id IS NOT NULL;
 CREATE INDEX audit_log_entitytype_created_idx ON audit_log (entity_type, created_at DESC);
 CREATE INDEX audit_log_action_created_idx ON audit_log (action, created_at DESC);
 CREATE INDEX audit_log_created_idx ON audit_log (created_at DESC);

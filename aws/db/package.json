@@ -1,0 +1,10 @@
+{
+  "name": "nextlevel-pos-etl",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.12.0",
+    "firebase-admin": "^12.7.0"
+  }
+}
