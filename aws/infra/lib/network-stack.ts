@@ -15,8 +15,13 @@ export class NetworkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Explicit AZs (rather than maxAzs, which needs a live account/region
+    // lookup) so `cdk synth` is reproducible without real AWS credentials —
+    // ap-south-1a/1b always exist. Override via context (-c azs=...) for a
+    // different region.
+    const azs = (this.node.tryGetContext("azs") as string[]) || [`${this.region}a`, `${this.region}b`];
     this.vpc = new ec2.Vpc(this, "Vpc", {
-      maxAzs: 2,
+      availabilityZones: azs,
       natGateways: 0,
       subnetConfiguration: [
         { name: "isolated", subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
@@ -27,6 +32,15 @@ export class NetworkStack extends cdk.Stack {
     this.vpc.addGatewayEndpoint("S3Endpoint", { service: ec2.GatewayVpcEndpointAwsService.S3 });
     this.vpc.addInterfaceEndpoint("SecretsManagerEndpoint", {
       service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
+    });
+    // Needed so isolated-subnet Lambdas can reach the WebSocket management
+    // API (broadcastClient.ts / connect.ts's AdminInitiateAuth-adjacent
+    // calls) and Cognito itself without a NAT gateway.
+    this.vpc.addInterfaceEndpoint("ExecuteApiEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.APIGATEWAY,
+    });
+    this.vpc.addInterfaceEndpoint("CognitoIdpEndpoint", {
+      service: ec2.InterfaceVpcEndpointAwsService.COGNITO_IDP,
     });
 
     this.lambdaSg = new ec2.SecurityGroup(this, "LambdaSg", {

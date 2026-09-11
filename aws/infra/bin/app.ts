@@ -30,7 +30,26 @@ const database = new DatabaseStack(app, `${prefix}-database`, {
   env, tags, vpc: network.vpc,
 });
 
-const auth = new AuthStack(app, `${prefix}-auth`, { env, tags, envName });
+const auth = new AuthStack(app, `${prefix}-auth`, {
+  env, tags, envName,
+  vpc: network.vpc,
+  dbSecretArn: database.secret.secretArn,
+  dbProxyEndpoint: database.proxy.endpoint,
+  lambdaSg: network.lambdaSg,
+});
+
+// realtime before api: api's callable Lambdas (kitchen/qrOrdersAdmin/
+// websiteOrdersAdmin) need the WebSocket callback URL + management ARN to
+// broadcast directly (see lib/broadcastClient.ts).
+const realtime = new RealtimeStack(app, `${prefix}-realtime`, {
+  env, tags, envName,
+  vpc: network.vpc,
+  dbSecretArn: database.secret.secretArn,
+  dbProxyEndpoint: database.proxy.endpoint,
+  lambdaSg: network.lambdaSg,
+  userPool: auth.userPool,
+  userPoolClient: auth.userPoolClient,
+});
 
 const api = new ApiStack(app, `${prefix}-api`, {
   env, tags, envName,
@@ -40,15 +59,8 @@ const api = new ApiStack(app, `${prefix}-api`, {
   userPool: auth.userPool,
   userPoolClient: auth.userPoolClient,
   lambdaSg: network.lambdaSg,
-});
-
-const realtime = new RealtimeStack(app, `${prefix}-realtime`, {
-  env, tags, envName,
-  vpc: network.vpc,
-  dbSecretArn: database.secret.secretArn,
-  dbProxyEndpoint: database.proxy.endpoint,
-  lambdaSg: network.lambdaSg,
-  userPool: auth.userPool,
+  wsCallbackUrl: realtime.callbackUrl,
+  wsManagementArn: realtime.managementArn,
 });
 
 new HostingStack(app, `${prefix}-hosting`, {

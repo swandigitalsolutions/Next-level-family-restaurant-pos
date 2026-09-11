@@ -17,6 +17,7 @@ export interface RealtimeStackProps extends cdk.StackProps {
   dbProxyEndpoint: string;
   lambdaSg: ec2.SecurityGroup;
   userPool: cognito.UserPool;
+  userPoolClient: cognito.UserPoolClient;
 }
 
 /**
@@ -40,6 +41,8 @@ export interface RealtimeStackProps extends cdk.StackProps {
  */
 export class RealtimeStack extends cdk.Stack {
   public readonly webSocketApi: apigw.WebSocketApi;
+  public readonly callbackUrl: string;
+  public readonly managementArn: string;
 
   constructor(scope: Construct, id: string, props: RealtimeStackProps) {
     super(scope, id, props);
@@ -50,10 +53,13 @@ export class RealtimeStack extends cdk.Stack {
       DB_NAME: "posdb",
     };
     const dbSecret = secrets.Secret.fromSecretCompleteArn(this, "DbSecret", props.dbSecretArn);
+    const backendRoot = path.join(__dirname, "../../backend");
 
     const mkFn = (id: string, entry: string) => {
       const fn = new nodejs.NodejsFunction(this, id, {
-        entry: path.join(__dirname, `../../backend/src/handlers/realtime/${entry}`),
+        entry: path.join(backendRoot, `src/handlers/realtime/${entry}`),
+        projectRoot: backendRoot,
+        depsLockFilePath: path.join(backendRoot, "package-lock.json"),
         runtime: lambda.Runtime.NODEJS_20_X,
         memorySize: 256,
         timeout: cdk.Duration.seconds(10),
@@ -68,6 +74,8 @@ export class RealtimeStack extends cdk.Stack {
     };
 
     const connectFn = mkFn("WsConnect", "connect.ts");
+    connectFn.addEnvironment("COGNITO_USER_POOL_ID", props.userPool.userPoolId);
+    connectFn.addEnvironment("COGNITO_CLIENT_ID", props.userPoolClient.userPoolClientId);
     const disconnectFn = mkFn("WsDisconnect", "disconnect.ts");
     const defaultFn = mkFn("WsDefault", "default.ts"); // keepalive / no-op
 
@@ -83,16 +91,14 @@ export class RealtimeStack extends cdk.Stack {
       autoDeploy: true,
     });
 
-    // Broadcaster Lambda: invoked (not HTTP-routed) by kitchen.ts/qrOrdersAdmin.ts/
-    // websiteOrdersAdmin.ts after a committed write, posts to every connection_id
-    // subscribed to the relevant channel via ApiGatewayManagementApi.
-    const broadcastFn = mkFn("WsBroadcast", "broadcast.ts");
-    broadcastFn.addEnvironment("WS_API_ENDPOINT", stage.callbackUrl);
-    broadcastFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ["execute-api:ManageConnections"],
-      resources: [`arn:aws:execute-api:${this.region}:${this.account}:${this.webSocketApi.apiId}/${props.envName}/POST/@connections/*`],
-    }));
-    new cdk.CfnOutput(this, "BroadcastFunctionArn", { value: broadcastFn.functionArn, exportName: `nlpos-${props.envName}-broadcast-fn-arn` });
+    // No separate broadcaster Lambda: the write-path callables (kitchen.ts,
+    // qrOrdersAdmin.ts, websiteOrdersAdmin.ts) call ApiGatewayManagementApi
+    // directly (see lib/broadcastClient.ts) — simpler than a second hop
+    // through an invoked Lambda, at the cost of granting those functions
+    // `execute-api:ManageConnections` too (done in ApiStack via the
+    // `callbackUrl`/`managementArn` this stack exposes).
+    this.callbackUrl = stage.callbackUrl;
+    this.managementArn = `arn:aws:execute-api:${this.region}:${this.account}:${this.webSocketApi.apiId}/${props.envName}/POST/@connections/*`;
 
     new cdk.CfnOutput(this, "WebSocketEndpoint", { value: stage.url });
   }

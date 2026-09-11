@@ -15,6 +15,18 @@ let cachedSecret: { host: string; port: number; dbname: string; username: string
 
 async function loadSecret(): Promise<typeof cachedSecret> {
   if (cachedSecret) return cachedSecret;
+  // Local/CI test escape hatch ONLY — never used by a deployed Lambda (which
+  // always has DB_SECRET_ARN set by the CDK stack and no reason to set this).
+  // Lets integration tests point at a disposable local Postgres without a
+  // real Secrets Manager secret.
+  if (process.env.DATABASE_URL) {
+    const u = new URL(process.env.DATABASE_URL);
+    cachedSecret = {
+      host: u.hostname, port: Number(u.port || 5432), dbname: u.pathname.replace(/^\//, "") || "posdb",
+      username: decodeURIComponent(u.username), password: decodeURIComponent(u.password),
+    };
+    return cachedSecret;
+  }
   const secretArn = process.env.DB_SECRET_ARN;
   if (!secretArn) {
     throw new Error("DB_SECRET_ARN env var not set — see aws/infra CDK DatabaseStack output");
@@ -41,7 +53,9 @@ export async function getPool(): Promise<Pool> {
     database: s!.dbname,
     user: s!.username,
     password: s!.password,
-    ssl: { rejectUnauthorized: true },
+    // Real RDS Proxy always requires TLS; a local test Postgres started
+    // without SSL configured does not speak it at all.
+    ssl: process.env.DATABASE_URL ? false : { rejectUnauthorized: true },
     max: 5, // Lambda: keep small per-container; RDS Proxy multiplexes across containers
     idleTimeoutMillis: 30_000,
   });

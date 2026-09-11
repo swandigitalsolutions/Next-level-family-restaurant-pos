@@ -8,6 +8,7 @@ import * as integ from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as authz from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as secrets from "aws-cdk-lib/aws-secretsmanager";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as path from "path";
 
 export interface ApiStackProps extends cdk.StackProps {
@@ -18,6 +19,8 @@ export interface ApiStackProps extends cdk.StackProps {
   userPool: cognito.UserPool;
   userPoolClient: cognito.UserPoolClient;
   lambdaSg: ec2.SecurityGroup;
+  wsCallbackUrl: string;
+  wsManagementArn: string;
 }
 
 /**
@@ -43,9 +46,12 @@ export class ApiStack extends cdk.Stack {
       NODE_OPTIONS: "--enable-source-maps",
     };
 
+    const backendRoot = path.join(__dirname, "../../backend");
     const mkFn = (id: string, entry: string, extraEnv: Record<string, string> = {}) => {
       const fn = new nodejs.NodejsFunction(this, id, {
-        entry: path.join(__dirname, `../../backend/src/handlers/${entry}`),
+        entry: path.join(backendRoot, `src/handlers/${entry}`),
+        projectRoot: backendRoot,
+        depsLockFilePath: path.join(backendRoot, "package-lock.json"),
         runtime: lambda.Runtime.NODEJS_20_X,
         memorySize: 256,
         timeout: cdk.Duration.seconds(15),
@@ -82,11 +88,40 @@ export class ApiStack extends cdk.Stack {
       ["kitchen", "callable/kitchen.ts"],
       ["qrOrdersAdmin", "callable/qrOrdersAdmin.ts"],
       ["websiteOrdersAdmin", "callable/websiteOrdersAdmin.ts"],
+      ["dashboard", "callable/dashboard.ts"],
     ];
     for (const [routeId, entry] of callables) {
-      const fn = mkFn(routeId, entry);
+      const fn = mkFn(routeId, entry, {
+        COGNITO_USER_POOL_ID: props.userPool.userPoolId,
+        COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
+      });
+      // Least privilege: only the two handlers that actually touch Cognito
+      // get IAM permission to do so.
+      if (routeId === "staffAdmin") {
+        fn.addToRolePolicy(new iam.PolicyStatement({
+          actions: [
+            "cognito-idp:AdminCreateUser", "cognito-idp:AdminSetUserPassword",
+            "cognito-idp:AdminUpdateUserAttributes", "cognito-idp:AdminDisableUser",
+            "cognito-idp:AdminEnableUser", "cognito-idp:AdminDeleteUser",
+          ],
+          resources: [props.userPool.userPoolArn],
+        }));
+      }
+      if (routeId === "loginWithPassword") {
+        fn.addToRolePolicy(new iam.PolicyStatement({ actions: ["cognito-idp:AdminInitiateAuth"], resources: [props.userPool.userPoolArn] }));
+      }
+      // The 3 handlers that raise a realtime event after committing a write
+      // (kitchen.ts, qrOrdersAdmin.ts, websiteOrdersAdmin.ts) broadcast
+      // directly over the WebSocket management API — see lib/broadcastClient.ts.
+      if (["kitchen", "qrOrdersAdmin", "websiteOrdersAdmin"].includes(routeId)) {
+        fn.addEnvironment("WS_API_ENDPOINT", props.wsCallbackUrl);
+        fn.addToRolePolicy(new iam.PolicyStatement({ actions: ["execute-api:ManageConnections"], resources: [props.wsManagementArn] }));
+      }
+      // {action} carries the specific operation within this module (e.g.
+      // callable/billing.ts handles createBill/openTable/settleTable) — see
+      // aws/backend/src/lib/callable.ts for the dispatch convention.
       this.httpApi.addRoutes({
-        path: `/api/callable/${routeId}`,
+        path: `/api/callable/${routeId}/{action}`,
         methods: [apigw.HttpMethod.POST],
         integration: new integ.HttpLambdaIntegration(`${routeId}Integ`, fn),
         authorizer: routeId === "loginWithPassword" ? undefined : authorizer,

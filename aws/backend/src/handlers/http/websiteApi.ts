@@ -139,7 +139,7 @@ async function handlePost(event: APIGatewayProxyEventV2): Promise<APIGatewayProx
   }
 
   const now = new Date();
-  const { id: createdId, ref } = await withTransaction(async (client) => {
+  const { id: createdId } = await withTransaction(async (client) => {
     if (idemKey) {
       const dup = await client.query("SELECT id, ref FROM website_orders WHERE idempotency_key = $1", [idemKey]);
       if (dup.rows[0]) return { id: dup.rows[0].id, ref: dup.rows[0].ref };
