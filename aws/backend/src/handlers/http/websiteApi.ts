@@ -98,7 +98,15 @@ async function handlePost(event: APIGatewayProxyEventV2): Promise<APIGatewayProx
         const row = await loadOrderById(done.orderId);
         if (row) return ok(websiteOrderWire(row), 201);
       }
-      return { statusCode: 409, headers: { "Retry-After": "2", "Content-Type": "application/json" }, body: JSON.stringify({ error: "a request with this Idempotency-Key is still processing" }) };
+      return {
+        statusCode: 409,
+        headers: { "Retry-After": "2", "Content-Type": "application/json" },
+        // code:"processing" lets the caller distinguish "come back shortly,
+        // don't treat this as a rejected cart" from a genuine 4xx rejection
+        // (which always carries a different code, e.g. "invalid-argument")
+        // — see the exchange with the Website team, aws/WEBSITE-INTEGRATION.md.
+        body: JSON.stringify({ error: { code: "processing", message: "a request with this Idempotency-Key is still processing" } }),
+      };
     }
     if (claim.outcome === "resume") pendingOrder = claim.pendingOrder;
   }
