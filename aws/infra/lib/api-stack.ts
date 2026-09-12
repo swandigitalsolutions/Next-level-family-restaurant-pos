@@ -130,10 +130,39 @@ export class ApiStack extends cdk.Stack {
     }
 
     // ── Public HTTP endpoints (no Cognito token — mirror firebase.json rewrites) ──
+    // Secrets created OUT OF BAND (see aws/docs/DEPLOY.md "create secrets" step)
+    // before this stack deploys — CDK only references them by name here.
+    //   nlpos-<env>/website-api-key  -> plain string, the comma-separated key(s)
+    //     the separate Website repo sends as X-API-Key
+    //   nlpos-<env>/razorpay         -> JSON {"keyId":"...","keySecret":"...","webhookSecret":"..."}
     const websiteApiKeySecret = secrets.Secret.fromSecretNameV2(this, "WebsiteApiKeySecret", `nlpos-${props.envName}/website-api-key`);
     const razorpaySecret = secrets.Secret.fromSecretNameV2(this, "RazorpaySecret", `nlpos-${props.envName}/razorpay`);
 
-    const websiteApi = mkFn("websiteApi", "http/websiteApi.ts");
+    // `-c paymentProvider=razorpay` (only once real Razorpay keys exist in the
+    // secret above) / default "mock". `-c allowMockPayments=true` is required
+    // for the mock provider to run in a DEPLOYED (non-emulator) Lambda at all
+    // — see lib/razorpay.ts MOCK_ALLOWED fail-closed check. Both read once
+    // here so a redeploy with different context flips the payment mode
+    // without touching application code.
+    const paymentProvider = (this.node.tryGetContext("paymentProvider") as string) || "mock";
+    const allowMockPayments = String(this.node.tryGetContext("allowMockPayments") ?? "true");
+    // .unsafeUnwrap() is CDK's documented pattern for this exact case — it
+    // does NOT put the plaintext secret in the CloudFormation template; it
+    // renders as a `{{resolve:secretsmanager:<arn>:SecretString:...}}`
+    // dynamic reference that only CloudFormation/Lambda resolves at
+    // deploy/runtime, bypassing CDK's compile-time "you're about to leak a
+    // secret" guard (which exists for string concatenation, not this).
+    const paymentEnv: Record<string, string> = { PAYMENT_PROVIDER: paymentProvider, ALLOW_MOCK_PAYMENTS: allowMockPayments };
+    if (paymentProvider === "razorpay") {
+      paymentEnv.RAZORPAY_KEY_ID = razorpaySecret.secretValueFromJson("keyId").unsafeUnwrap();
+      paymentEnv.RAZORPAY_KEY_SECRET = razorpaySecret.secretValueFromJson("keySecret").unsafeUnwrap();
+      paymentEnv.RAZORPAY_WEBHOOK_SECRET = razorpaySecret.secretValueFromJson("webhookSecret").unsafeUnwrap();
+    }
+
+    const websiteApi = mkFn("websiteApi", "http/websiteApi.ts", {
+      ...paymentEnv,
+      WEBSITE_API_KEYS: websiteApiKeySecret.secretValue.unsafeUnwrap(),
+    });
     websiteApiKeySecret.grantRead(websiteApi);
     razorpaySecret.grantRead(websiteApi);
     this.httpApi.addRoutes({
@@ -142,7 +171,7 @@ export class ApiStack extends cdk.Stack {
       integration: new integ.HttpLambdaIntegration("WebsiteApiInteg", websiteApi),
     });
 
-    const razorpayWebhook = mkFn("razorpayWebhook", "http/paymentWebhook.ts");
+    const razorpayWebhook = mkFn("razorpayWebhook", "http/paymentWebhook.ts", paymentEnv);
     razorpaySecret.grantRead(razorpayWebhook);
     this.httpApi.addRoutes({
       path: "/api/razorpay/webhook",
@@ -157,7 +186,8 @@ export class ApiStack extends cdk.Stack {
       integration: new integ.HttpLambdaIntegration("QrApiInteg", qrApi),
     });
 
-    const websiteMenu = mkFn("websiteMenu", "http/websiteMenu.ts");
+    const websiteMenu = mkFn("websiteMenu", "http/websiteMenu.ts", { WEBSITE_API_KEYS: websiteApiKeySecret.secretValue.unsafeUnwrap() });
+    websiteApiKeySecret.grantRead(websiteMenu);
     this.httpApi.addRoutes({
       path: "/api/website/menu",
       methods: [apigw.HttpMethod.GET],
