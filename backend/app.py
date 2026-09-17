@@ -4,10 +4,14 @@ Flask + session-based authentication, backed by SQLite locally or PostgreSQL
 when DATABASE_URL is set (see database.py).
 """
 
+import csv
 import io
+import json
 import os
+import re
 import functools
 import secrets
+import time
 import uuid
 from datetime import datetime
 
@@ -15,27 +19,57 @@ from flask import Flask, request, jsonify, session, send_from_directory, redirec
 from flask_cors import CORS
 from werkzeug.security import check_password_hash
 
-from database import get_db, init_db, next_bill_number
+from database import get_db, init_db, next_bill_number, generate_password_hash, USE_POSTGRES
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
 
+IS_PRODUCTION = bool(os.environ.get("RENDER") or os.environ.get("PRODUCTION"))
+_DEFAULT_SECRET = "next-level-family-restaurant-dev-secret-change-me"
+_secret_key = os.environ.get("SECRET_KEY", "").strip()
+if IS_PRODUCTION and (not _secret_key or _secret_key == _DEFAULT_SECRET):
+    # A hardcoded/missing session secret in production would let anyone forge a
+    # login session. Fail loudly at boot instead of silently shipping that hole.
+    raise RuntimeError(
+        "SECRET_KEY environment variable must be set to a random value in production. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "next-level-family-restaurant-dev-secret-change-me")
+app.secret_key = _secret_key or _DEFAULT_SECRET
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 # When served behind Render's HTTPS proxy, mark the session cookie Secure and
 # trust the X-Forwarded-* headers so redirects and URLs use https.
-if os.environ.get("RENDER") or os.environ.get("PRODUCTION"):
+if IS_PRODUCTION:
     app.config["SESSION_COOKIE_SECURE"] = True
     from werkzeug.middleware.proxy_fix import ProxyFix
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-# CORS stays enabled (with credentials) for cases where the frontend is opened
-# from a different origin/port during development; Flask also serves the
-# frontend directly below so the default same-origin setup works out of the box.
-CORS(app, supports_credentials=True)
+# CORS is only needed when the frontend is opened from a different origin than
+# the API (e.g. a separate dev server). Flask serves the frontend directly on
+# the same origin by default, so cross-origin credentialed requests are closed
+# unless the deployment explicitly lists allowed origins via CORS_ORIGINS
+# (comma-separated). "*" is never honoured together with credentials.
+_cors_origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+if _cors_origins:
+    CORS(app, supports_credentials=True, origins=_cors_origins)
+
+# Static API keys for server-to-server callers (e.g. the restaurant's public
+# website fetching the menu). Deliberately separate from session auth: no
+# cookie, no CORS - the caller is another backend, not a browser.
+WEBSITE_API_KEYS = {k.strip() for k in os.environ.get("WEBSITE_API_KEYS", "").split(",") if k.strip()}
+
+
+def require_api_key(fn):
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        key = request.headers.get("X-API-Key", "")
+        if not key or key not in WEBSITE_API_KEYS:
+            return jsonify({"error": "unauthorized"}), 401
+        return fn(*args, **kwargs)
+    return wrapper
 
 # Ensure the schema exists and seed data is present on every boot. This is
 # idempotent and matters for WSGI servers (gunicorn) that never run __main__.
@@ -105,9 +139,67 @@ def login_required(fn):
     return wrapper
 
 
+# Roles, from most to least privileged:
+#   admin   - full access, including staff management and menu/catalog edits
+#   manager - operations + catalog edits, but cannot manage staff accounts
+#   staff   - billing, table service and QR order handling only (cashier/waiter)
+#   owner   - view-only dashboard access (see OWNER_ALLOWED_API below)
+VALID_ROLES = {"admin", "manager", "staff", "owner"}
+MANAGE_ROLES = ("admin", "manager")
+
+
+def require_role(*roles):
+    """Like login_required, but also 403s if the session role is not one of `roles`."""
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            if not session.get("user_id"):
+                return error("Unauthorized. Please log in.", 401)
+            if session.get("role") not in roles:
+                return error("You do not have permission to perform this action.", 403)
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
 # The "owner" role is view-only: it can reach the dashboard/insights and its own
 # session, nothing else. Every other /api route returns 403 for an owner.
 OWNER_ALLOWED_API = {"/api/me", "/api/logout", "/api/login", "/api/dashboard", "/api/health"}
+
+# ---------------------------------------------------------------------------
+# Login throttling. In-process only (resets on restart / differs per gunicorn
+# worker) but still raises the bar against naive password guessing on the
+# small login form; a proper deployment should also rate-limit at the proxy.
+# ---------------------------------------------------------------------------
+_LOGIN_ATTEMPTS = {}
+LOGIN_MAX_ATTEMPTS = 6
+LOGIN_LOCKOUT_SECONDS = 5 * 60
+
+
+def _login_throttle_key():
+    return request.headers.get("X-Forwarded-For", request.remote_addr or "unknown").split(",")[0].strip()
+
+
+def _is_login_locked(key):
+    entry = _LOGIN_ATTEMPTS.get(key)
+    if not entry:
+        return False
+    count, locked_at = entry
+    if count < LOGIN_MAX_ATTEMPTS:
+        return False
+    if time.time() - locked_at > LOGIN_LOCKOUT_SECONDS:
+        _LOGIN_ATTEMPTS.pop(key, None)
+        return False
+    return True
+
+
+def _register_login_failure(key):
+    count, _ = _LOGIN_ATTEMPTS.get(key, (0, 0))
+    _LOGIN_ATTEMPTS[key] = (count + 1, time.time())
+
+
+def _clear_login_failures(key):
+    _LOGIN_ATTEMPTS.pop(key, None)
 
 
 @app.before_request
@@ -142,14 +234,69 @@ def to_positive_int(value, field_name):
     return val
 
 
+def to_optional_stock(value, field_name):
+    """Stock quantity input: blank/None means "not tracked" (unlimited)."""
+    if value is None or value == "":
+        return None
+    try:
+        val = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a whole number")
+    if val < 0:
+        raise ValueError(f"{field_name} cannot be negative")
+    return val
+
+
+def log_audit(conn, action, entity_type, entity_id=None, details=None):
+    """Append an audit trail row for a mutating action. Never raises - a
+    logging failure must not roll back or block the action it is describing."""
+    try:
+        conn.execute(
+            """INSERT INTO audit_log (actor_id, actor_username, actor_role, action, entity_type, entity_id, details)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                session.get("user_id"),
+                session.get("username"),
+                session.get("role"),
+                action,
+                entity_type,
+                str(entity_id) if entity_id is not None else None,
+                json.dumps(details, default=str) if details is not None else None,
+            ),
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def apply_stock_delta(conn, item_kind, item_id, delta):
+    """Decrement (or restore, with a positive delta) an item's tracked stock.
+    A NULL stock_qty means the item isn't stock-tracked and is left alone;
+    tracked stock never goes below zero."""
+    if not item_id or not delta:
+        return
+    table = "food_items" if item_kind == "food" else "alcohol_items"
+    # CASE instead of MAX()/GREATEST() - MAX(a, b) is SQLite-only as a scalar
+    # function (it's aggregate-only in Postgres, whose equivalent is GREATEST).
+    conn.execute(
+        f"""UPDATE {table}
+            SET stock_qty = CASE WHEN stock_qty + ? < 0 THEN 0 ELSE stock_qty + ? END
+            WHERE id = ? AND stock_qty IS NOT NULL""",
+        (delta, delta, item_id),
+    )
+
+
 # =========================================================
 # Auth routes
 # =========================================================
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    throttle_key = _login_throttle_key()
+    if _is_login_locked(throttle_key):
+        return error("Too many failed attempts. Please try again in a few minutes.", 429)
+
     body = request.get_json(silent=True) or {}
-    username = (body.get("username") or "").strip()
+    username = (body.get("username") or "").strip().lower()
     password = body.get("password") or ""
 
     if not username or not password:
@@ -162,11 +309,18 @@ def login():
     conn.close()
 
     if not user or not check_password_hash(user["password_hash"], password):
+        _register_login_failure(throttle_key)
         return error("Invalid username or password", 401)
 
+    if (user["status"] or "active") != "active":
+        return error("This account has been deactivated. Contact your administrator.", 403)
+
+    _clear_login_failures(throttle_key)
+    session.clear()
     session["user_id"] = user["id"]
     session["username"] = user["username"]
     session["role"] = user["role"]
+    session["full_name"] = user["full_name"]
 
     return ok({
         "id": user["id"],
@@ -190,6 +344,7 @@ def me():
         "id": session["user_id"],
         "username": session["username"],
         "role": session.get("role", "staff"),
+        "full_name": session.get("full_name"),
     })
 
 
@@ -200,6 +355,154 @@ def me():
 @app.route("/api/health", methods=["GET"])
 def health():
     return ok({"status": "healthy", "time": datetime.now().isoformat()})
+
+
+# =========================================================
+# STAFF - Accounts & role-based access (admin only)
+# =========================================================
+
+STAFF_FIELDS = "id, username, full_name, phone, role, status, created_at"
+USERNAME_RE = re.compile(r"^[a-z0-9_.]{3,32}$")
+
+
+def _admin_count(conn, exclude_id=None):
+    if exclude_id is None:
+        return conn.execute(
+            "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 'active'"
+        ).fetchone()["c"]
+    return conn.execute(
+        "SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND status = 'active' AND id != ?",
+        (exclude_id,),
+    ).fetchone()["c"]
+
+
+@app.route("/api/staff", methods=["GET"])
+@require_role("admin")
+def list_staff():
+    conn = get_db()
+    rows = conn.execute(f"SELECT {STAFF_FIELDS} FROM users ORDER BY id").fetchall()
+    conn.close()
+    return ok([dict(r) for r in rows])
+
+
+@app.route("/api/staff", methods=["POST"])
+@require_role("admin")
+def create_staff():
+    body = request.get_json(silent=True) or {}
+    username = (body.get("username") or "").strip().lower()
+    password = body.get("password") or ""
+    full_name = (body.get("full_name") or "").strip()
+    phone = (body.get("phone") or "").strip()
+    role = (body.get("role") or "staff").strip().lower()
+
+    if not USERNAME_RE.match(username):
+        return error("Username must be 3-32 characters: lowercase letters, numbers, dot or underscore only")
+    if not full_name:
+        return error("Full name is required")
+    if len(password) < 6:
+        return error("Password must be at least 6 characters")
+    if role not in VALID_ROLES:
+        return error("Invalid role")
+
+    conn = get_db()
+    existing = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+    if existing:
+        conn.close()
+        return error("A staff account with this username already exists", 409)
+
+    cur = conn.execute(
+        "INSERT INTO users (username, password_hash, full_name, phone, role) VALUES (?, ?, ?, ?, ?)",
+        (username, generate_password_hash(password), full_name, phone, role),
+    )
+    log_audit(conn, "staff.create", "user", cur.lastrowid, {"username": username, "role": role})
+    conn.commit()
+    row = conn.execute(f"SELECT {STAFF_FIELDS} FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
+    conn.close()
+    return ok(dict(row), 201)
+
+
+@app.route("/api/staff/<int:user_id>", methods=["PUT"])
+@require_role("admin")
+def update_staff(user_id):
+    body = request.get_json(silent=True) or {}
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not existing:
+        conn.close()
+        return error("Staff member not found", 404)
+
+    full_name = (body.get("full_name") if body.get("full_name") is not None else existing["full_name"]) or ""
+    full_name = full_name.strip()
+    phone = (body.get("phone") if body.get("phone") is not None else (existing["phone"] or "")).strip()
+    role = (body.get("role") or existing["role"] or "staff").strip().lower()
+    status = (body.get("status") or existing["status"] or "active").strip().lower()
+
+    if not full_name:
+        conn.close()
+        return error("Full name is required")
+    if role not in VALID_ROLES:
+        conn.close()
+        return error("Invalid role")
+    if status not in ("active", "inactive"):
+        conn.close()
+        return error("Invalid status")
+
+    # Never allow the last active admin to be demoted, deactivated, or locked out.
+    demoting_last_admin = existing["role"] == "admin" and (role != "admin" or status != "active")
+    if demoting_last_admin and _admin_count(conn, exclude_id=user_id) == 0:
+        conn.close()
+        return error("At least one active admin account must remain")
+
+    password = body.get("password")
+    if password:
+        if len(password) < 6:
+            conn.close()
+            return error("Password must be at least 6 characters")
+        conn.execute(
+            "UPDATE users SET full_name = ?, phone = ?, role = ?, status = ?, password_hash = ? WHERE id = ?",
+            (full_name, phone, role, status, generate_password_hash(password), user_id),
+        )
+    else:
+        conn.execute(
+            "UPDATE users SET full_name = ?, phone = ?, role = ?, status = ? WHERE id = ?",
+            (full_name, phone, role, status, user_id),
+        )
+    log_audit(conn, "staff.update", "user", user_id, {
+        "username": existing["username"],
+        "role": {"from": existing["role"], "to": role},
+        "status": {"from": existing["status"], "to": status},
+        "password_reset": bool(password),
+    })
+    conn.commit()
+
+    # A demoted/deactivated/role-changed user's existing session should not
+    # keep the old privileges until it naturally expires.
+    if session.get("user_id") == user_id:
+        session["role"] = role
+
+    row = conn.execute(f"SELECT {STAFF_FIELDS} FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+    return ok(dict(row))
+
+
+@app.route("/api/staff/<int:user_id>", methods=["DELETE"])
+@require_role("admin")
+def deactivate_staff(user_id):
+    if user_id == session.get("user_id"):
+        return error("You cannot remove your own account")
+    conn = get_db()
+    existing = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not existing:
+        conn.close()
+        return error("Staff member not found", 404)
+    if existing["role"] == "admin" and _admin_count(conn, exclude_id=user_id) == 0:
+        conn.close()
+        return error("At least one active admin account must remain")
+    conn.execute("UPDATE users SET status = 'inactive' WHERE id = ?", (user_id,))
+    log_audit(conn, "staff.deactivate", "user", user_id, {"username": existing["username"]})
+    conn.commit()
+    conn.close()
+    return ok({"message": "Staff account deactivated"})
 
 
 # =========================================================
@@ -218,7 +521,7 @@ def get_food_categories():
 
 
 @app.route("/api/food/categories", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def add_food_category():
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()
@@ -249,7 +552,7 @@ def add_food_category():
 
 
 @app.route("/api/food/categories/<int:cat_id>", methods=["PUT"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def update_food_category(cat_id):
     body = request.get_json(silent=True) or {}
     conn = get_db()
@@ -274,7 +577,7 @@ def update_food_category(cat_id):
 
 
 @app.route("/api/food/categories/<int:cat_id>", methods=["DELETE"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def delete_food_category(cat_id):
     conn = get_db()
     existing = conn.execute(
@@ -327,7 +630,7 @@ def get_food_items():
 
 
 @app.route("/api/food/items", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def add_food_item():
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()
@@ -336,8 +639,10 @@ def add_food_item():
     try:
         category_id = to_positive_int(body.get("category_id"), "category_id")
         price = to_float(body.get("price"), "price")
+        stock_qty = to_optional_stock(body.get("stock_qty"), "stock_qty")
     except ValueError as e:
         return error(str(e))
+    description = (body.get("description") or "").strip() or None
 
     conn = get_db()
     cat = conn.execute("SELECT id FROM food_categories WHERE id = ?", (category_id,)).fetchone()
@@ -346,9 +651,10 @@ def add_food_item():
         return error("Category not found", 404)
 
     cur = conn.execute(
-        "INSERT INTO food_items (name, category_id, price) VALUES (?, ?, ?)",
-        (name, category_id, price),
+        "INSERT INTO food_items (name, category_id, price, stock_qty, description) VALUES (?, ?, ?, ?, ?)",
+        (name, category_id, price, stock_qty, description),
     )
+    log_audit(conn, "menu.item.create", "food_item", cur.lastrowid, {"name": name, "price": price})
     conn.commit()
     row = conn.execute("SELECT * FROM food_items WHERE id = ?", (cur.lastrowid,)).fetchone()
     conn.close()
@@ -356,7 +662,7 @@ def add_food_item():
 
 
 @app.route("/api/food/items/<int:item_id>", methods=["PUT"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def update_food_item(item_id):
     body = request.get_json(silent=True) or {}
     conn = get_db()
@@ -369,17 +675,23 @@ def update_food_item(item_id):
         name = (body.get("name") or existing["name"]).strip()
         category_id = to_positive_int(body.get("category_id"), "category_id") if "category_id" in body else existing["category_id"]
         price = to_float(body.get("price"), "price") if "price" in body else existing["price"]
+        stock_qty = to_optional_stock(body.get("stock_qty"), "stock_qty") if "stock_qty" in body else existing["stock_qty"]
     except ValueError as e:
         conn.close()
         return error(str(e))
+    description = ((body.get("description") or "").strip() or None) if "description" in body else existing["description"]
 
     status = body.get("status") or existing["status"]
 
     conn.execute(
-        """UPDATE food_items SET name = ?, category_id = ?, price = ?, status = ?,
+        """UPDATE food_items SET name = ?, category_id = ?, price = ?, stock_qty = ?, description = ?, status = ?,
            updated_at = datetime('now','localtime') WHERE id = ?""",
-        (name, category_id, price, status, item_id),
+        (name, category_id, price, stock_qty, description, status, item_id),
     )
+    if float(existing["price"]) != float(price):
+        log_audit(conn, "menu.item.price_change", "food_item", item_id, {
+            "name": name, "price": {"from": float(existing["price"]), "to": price},
+        })
     conn.commit()
     row = conn.execute("SELECT * FROM food_items WHERE id = ?", (item_id,)).fetchone()
     conn.close()
@@ -387,7 +699,7 @@ def update_food_item(item_id):
 
 
 @app.route("/api/food/items/<int:item_id>", methods=["DELETE"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def delete_food_item(item_id):
     conn = get_db()
     existing = conn.execute("SELECT * FROM food_items WHERE id = ?", (item_id,)).fetchone()
@@ -395,6 +707,7 @@ def delete_food_item(item_id):
         conn.close()
         return error("Item not found", 404)
     conn.execute("UPDATE food_items SET status = 'inactive' WHERE id = ?", (item_id,))
+    log_audit(conn, "menu.item.delete", "food_item", item_id, {"name": existing["name"]})
     conn.commit()
     conn.close()
     return ok({"message": "Item deleted"})
@@ -416,7 +729,7 @@ def get_alcohol_categories():
 
 
 @app.route("/api/alcohol/categories", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def add_alcohol_category():
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()
@@ -447,7 +760,7 @@ def add_alcohol_category():
 
 
 @app.route("/api/alcohol/categories/<int:cat_id>", methods=["PUT"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def update_alcohol_category(cat_id):
     body = request.get_json(silent=True) or {}
     conn = get_db()
@@ -472,7 +785,7 @@ def update_alcohol_category(cat_id):
 
 
 @app.route("/api/alcohol/categories/<int:cat_id>", methods=["DELETE"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def delete_alcohol_category(cat_id):
     conn = get_db()
     existing = conn.execute(
@@ -525,7 +838,7 @@ def get_alcohol_items():
 
 
 @app.route("/api/alcohol/items", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def add_alcohol_item():
     body = request.get_json(silent=True) or {}
     name = (body.get("name") or "").strip()
@@ -535,6 +848,7 @@ def add_alcohol_item():
         category_id = to_positive_int(body.get("category_id"), "category_id")
         price = to_float(body.get("price"), "price")
         tax_rate = to_float(body.get("tax_rate", 0), "tax_rate")
+        stock_qty = to_optional_stock(body.get("stock_qty"), "stock_qty")
     except ValueError as e:
         return error(str(e))
 
@@ -548,10 +862,11 @@ def add_alcohol_item():
         return error("Category not found", 404)
 
     cur = conn.execute(
-        """INSERT INTO alcohol_items (name, category_id, brand, bottle_size, price, tax_rate)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (name, category_id, brand, bottle_size, price, tax_rate),
+        """INSERT INTO alcohol_items (name, category_id, brand, bottle_size, price, tax_rate, stock_qty)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (name, category_id, brand, bottle_size, price, tax_rate, stock_qty),
     )
+    log_audit(conn, "menu.item.create", "alcohol_item", cur.lastrowid, {"name": name, "price": price})
     conn.commit()
     row = conn.execute("SELECT * FROM alcohol_items WHERE id = ?", (cur.lastrowid,)).fetchone()
     conn.close()
@@ -559,7 +874,7 @@ def add_alcohol_item():
 
 
 @app.route("/api/alcohol/items/<int:item_id>", methods=["PUT"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def update_alcohol_item(item_id):
     body = request.get_json(silent=True) or {}
     conn = get_db()
@@ -573,6 +888,7 @@ def update_alcohol_item(item_id):
         category_id = to_positive_int(body.get("category_id"), "category_id") if "category_id" in body else existing["category_id"]
         price = to_float(body.get("price"), "price") if "price" in body else existing["price"]
         tax_rate = to_float(body.get("tax_rate"), "tax_rate") if "tax_rate" in body else existing["tax_rate"]
+        stock_qty = to_optional_stock(body.get("stock_qty"), "stock_qty") if "stock_qty" in body else existing["stock_qty"]
     except ValueError as e:
         conn.close()
         return error(str(e))
@@ -583,10 +899,14 @@ def update_alcohol_item(item_id):
 
     conn.execute(
         """UPDATE alcohol_items SET name = ?, category_id = ?, brand = ?, bottle_size = ?,
-           price = ?, tax_rate = ?, status = ?, updated_at = datetime('now','localtime')
+           price = ?, tax_rate = ?, stock_qty = ?, status = ?, updated_at = datetime('now','localtime')
            WHERE id = ?""",
-        (name, category_id, brand, bottle_size, price, tax_rate, status, item_id),
+        (name, category_id, brand, bottle_size, price, tax_rate, stock_qty, status, item_id),
     )
+    if float(existing["price"]) != float(price):
+        log_audit(conn, "menu.item.price_change", "alcohol_item", item_id, {
+            "name": name, "price": {"from": float(existing["price"]), "to": price},
+        })
     conn.commit()
     row = conn.execute("SELECT * FROM alcohol_items WHERE id = ?", (item_id,)).fetchone()
     conn.close()
@@ -594,7 +914,7 @@ def update_alcohol_item(item_id):
 
 
 @app.route("/api/alcohol/items/<int:item_id>", methods=["DELETE"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def delete_alcohol_item(item_id):
     conn = get_db()
     existing = conn.execute("SELECT * FROM alcohol_items WHERE id = ?", (item_id,)).fetchone()
@@ -602,6 +922,7 @@ def delete_alcohol_item(item_id):
         conn.close()
         return error("Item not found", 404)
     conn.execute("UPDATE alcohol_items SET status = 'inactive' WHERE id = ?", (item_id,))
+    log_audit(conn, "menu.item.delete", "alcohol_item", item_id, {"name": existing["name"]})
     conn.commit()
     conn.close()
     return ok({"message": "Item deleted"})
@@ -640,7 +961,7 @@ def list_tables():
 
 
 @app.route("/api/tables", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def create_table():
     body = request.get_json(silent=True) or {}
     table_no = (body.get("table_no") or "").strip()
@@ -664,7 +985,7 @@ def create_table():
 
 
 @app.route("/api/tables/<int:table_id>", methods=["PUT"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def update_table(table_id):
     body = request.get_json(silent=True) or {}
     conn = get_db()
@@ -758,11 +1079,12 @@ def save_table_session(session_id):
             conn.close()
             return error("Each table item must have a name")
         kind = "alcohol" if item.get("item_kind") == "alcohol" else "food"
-        clean_items.append((kind, name, (item.get("brand") or "").strip(), (item.get("bottle_size") or "").strip(), price, qty, tax_rate, round(price * qty, 2)))
+        item_id = item.get("item_id")
+        clean_items.append((kind, item_id if isinstance(item_id, int) else None, name, (item.get("brand") or "").strip(), (item.get("bottle_size") or "").strip(), price, qty, tax_rate, round(price * qty, 2)))
     conn.execute("DELETE FROM table_session_items WHERE session_id = ?", (session_id,))
     conn.executemany(
-        """INSERT INTO table_session_items (session_id, item_kind, item_name, brand, bottle_size, price, qty, tax_rate, line_total)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        """INSERT INTO table_session_items (session_id, item_kind, item_id, item_name, brand, bottle_size, price, qty, tax_rate, line_total)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         [(session_id, *item) for item in clean_items],
     )
     customer_name = (body.get("customer_name") or current["customer_name"]).strip() or "Walk-in"
@@ -833,12 +1155,17 @@ def settle_table_session(session_id):
             if kind == "food":
                 for row in group:
                     conn.execute("INSERT INTO food_bill_items (bill_id, item_name, price, qty, line_total) VALUES (?, ?, ?, ?, ?)", (bill_id, row["item_name"], row["price"], row["qty"], row["line_total"]))
+                    apply_stock_delta(conn, "food", row["item_id"], -row["qty"])
             else:
                 for row in group:
                     conn.execute("INSERT INTO alcohol_bill_items (bill_id, item_name, brand, bottle_size, price, qty, tax_rate, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (bill_id, row["item_name"], row["brand"], row["bottle_size"], row["price"], row["qty"], row["tax_rate"], row["line_total"]))
+                    apply_stock_delta(conn, "alcohol", row["item_id"], -row["qty"])
             created_bills.append((kind, bill_id))
         conn.execute("UPDATE table_sessions SET status = 'settled', settled_at = datetime('now','localtime') WHERE id = ?", (session_id,))
         conn.execute("UPDATE restaurant_tables SET status = 'available', updated_at = datetime('now','localtime') WHERE id = ?", (current["table_id"],))
+        log_audit(conn, "table.settle", "table_session", session_id, {
+            "table_no": current["table_no"], "grand_total": round(settled_subtotal + settled_tax - discount, 2), "discount": discount,
+        })
         conn.commit()
     except Exception as exc:
         conn.rollback()
@@ -879,7 +1206,8 @@ def create_food_bill():
             return error("Each item must have a name")
         line_total = round(price * qty, 2)
         subtotal += line_total
-        clean_items.append((name, price, qty, line_total))
+        item_id = it.get("item_id")
+        clean_items.append((name, price, qty, line_total, item_id if isinstance(item_id, int) else None))
 
     subtotal = round(subtotal, 2)
     if discount > subtotal:
@@ -907,12 +1235,14 @@ def create_food_bill():
              payment_method, session.get("user_id")),
         )
         bill_id = cur.lastrowid
-        for name, price, qty, line_total in clean_items:
+        for name, price, qty, line_total, item_id in clean_items:
             conn.execute(
                 """INSERT INTO food_bill_items (bill_id, item_name, price, qty, line_total)
                    VALUES (?, ?, ?, ?, ?)""",
                 (bill_id, name, price, qty, line_total),
             )
+            apply_stock_delta(conn, "food", item_id, -qty)
+        log_audit(conn, "bill.create", "food_bill", bill_id, {"bill_no": bill_no, "grand_total": grand_total})
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -934,8 +1264,12 @@ def create_food_bill():
 @app.route("/api/food/bills", methods=["GET"])
 @login_required
 def list_food_bills():
+    try:
+        limit = min(max(int(request.args.get("limit", 200)), 1), 500)
+    except (TypeError, ValueError):
+        limit = 200
     conn = get_db()
-    rows = conn.execute("SELECT * FROM food_bills ORDER BY id DESC").fetchall()
+    rows = conn.execute("SELECT * FROM food_bills ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
     return ok([dict(r) for r in rows])
 
@@ -992,9 +1326,10 @@ def create_alcohol_bill():
         line_tax = round(line_total * tax_rate / 100, 2)
         subtotal += line_total
         tax_total += line_tax
+        item_id = it.get("item_id")
         clean_items.append((
             name, (it.get("brand") or "").strip(), (it.get("bottle_size") or "").strip(),
-            price, qty, tax_rate, line_total
+            price, qty, tax_rate, line_total, item_id if isinstance(item_id, int) else None
         ))
 
     subtotal = round(subtotal, 2)
@@ -1023,13 +1358,15 @@ def create_alcohol_bill():
              payment_method, session.get("user_id")),
         )
         bill_id = cur.lastrowid
-        for name, brand, bottle_size, price, qty, tax_rate, line_total in clean_items:
+        for name, brand, bottle_size, price, qty, tax_rate, line_total, item_id in clean_items:
             conn.execute(
                 """INSERT INTO alcohol_bill_items
                    (bill_id, item_name, brand, bottle_size, price, qty, tax_rate, line_total)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (bill_id, name, brand, bottle_size, price, qty, tax_rate, line_total),
             )
+            apply_stock_delta(conn, "alcohol", item_id, -qty)
+        log_audit(conn, "bill.create", "alcohol_bill", bill_id, {"bill_no": bill_no, "grand_total": grand_total})
         conn.commit()
     except Exception as e:
         conn.rollback()
@@ -1051,8 +1388,12 @@ def create_alcohol_bill():
 @app.route("/api/alcohol/bills", methods=["GET"])
 @login_required
 def list_alcohol_bills():
+    try:
+        limit = min(max(int(request.args.get("limit", 200)), 1), 500)
+    except (TypeError, ValueError):
+        limit = 200
     conn = get_db()
-    rows = conn.execute("SELECT * FROM alcohol_bills ORDER BY id DESC").fetchall()
+    rows = conn.execute("SELECT * FROM alcohol_bills ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
     return ok([dict(r) for r in rows])
 
@@ -1079,26 +1420,65 @@ def get_alcohol_bill(bill_id):
 # ORDERS (combined food + alcohol)
 # =========================================================
 
+ORDERS_BILL_COLUMNS = (
+    "id, bill_no, customer_name, customer_phone, subtotal, discount, tax, "
+    "grand_total, payment_method, status, created_at"
+)
+
+
 @app.route("/api/orders", methods=["GET"])
 @login_required
 def list_orders():
+    # Loading every bill ever created (no filter, no limit) was fine with a
+    # handful of test rows and guaranteed to get slower every single day the
+    # restaurant stays open. Filtering and pagination now happen in SQL, so
+    # the page stays fast whether the history is a week old or five years old.
+    type_filter = (request.args.get("type") or "all").strip().upper()
+    if type_filter not in ("ALL", "FOOD", "ALCOHOL"):
+        return error("type must be FOOD, ALCOHOL or all")
+    date_filter = (request.args.get("date") or "").strip()
+    if date_filter and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_filter):
+        return error("date must be YYYY-MM-DD")
+    search = (request.args.get("search") or "").strip()
+    try:
+        limit = min(max(int(request.args.get("limit", 25)), 1), 200)
+    except (TypeError, ValueError):
+        limit = 25
+    try:
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except (TypeError, ValueError):
+        offset = 0
+
+    parts = []
+    if type_filter in ("ALL", "FOOD"):
+        parts.append(f"SELECT {ORDERS_BILL_COLUMNS}, 'FOOD' AS type FROM food_bills")
+    if type_filter in ("ALL", "ALCOHOL"):
+        parts.append(f"SELECT {ORDERS_BILL_COLUMNS}, 'ALCOHOL' AS type FROM alcohol_bills")
+    union_sql = " UNION ALL ".join(parts)
+
+    clauses = []
+    params = []
+    if date_filter:
+        clauses.append("date(created_at) = ?")
+        params.append(date_filter)
+    if search:
+        clauses.append("(LOWER(bill_no) LIKE ? OR LOWER(customer_name) LIKE ?)")
+        needle = f"%{search.lower()}%"
+        params.extend([needle, needle])
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
     conn = get_db()
-    food = conn.execute("SELECT * FROM food_bills ORDER BY id DESC").fetchall()
-    alcohol = conn.execute("SELECT * FROM alcohol_bills ORDER BY id DESC").fetchall()
+    total = conn.execute(
+        f"SELECT COUNT(*) AS c FROM ({union_sql}) combined {where}", tuple(params)
+    ).fetchone()["c"]
+    rows = conn.execute(
+        f"""SELECT * FROM ({union_sql}) combined {where}
+            ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+        tuple(params) + (limit, offset),
+    ).fetchall()
     conn.close()
 
-    combined = []
-    for r in food:
-        d = dict(r)
-        d["type"] = "FOOD"
-        combined.append(d)
-    for r in alcohol:
-        d = dict(r)
-        d["type"] = "ALCOHOL"
-        combined.append(d)
-
-    combined.sort(key=lambda x: x["created_at"], reverse=True)
-    return ok(combined)
+    return ok({"orders": [dict(r) for r in rows], "total": total, "limit": limit, "offset": offset})
 
 
 # =========================================================
@@ -1130,12 +1510,20 @@ def dashboard():
            GROUP BY day ORDER BY day"""
     ).fetchall()
 
+    # These three widgets used to scan every bill ever created, with no date
+    # bound - fine on day one, a real slowdown on every dashboard load (i.e.
+    # every login) after a year of service. Bounding them to a rolling
+    # 30-day window keeps the query fast forever *and* is more useful data -
+    # "top sellers this month" beats "top sellers since 2024" for a manager
+    # deciding what to restock today.
     payment_rows = conn.execute(
         """SELECT payment_method AS method, ROUND(SUM(total), 2) AS total, SUM(orders) AS orders
            FROM (
              SELECT payment_method, grand_total AS total, 1 AS orders FROM food_bills
+               WHERE date(created_at) >= date('now', 'localtime', '-29 day')
              UNION ALL
              SELECT payment_method, grand_total AS total, 1 AS orders FROM alcohol_bills
+               WHERE date(created_at) >= date('now', 'localtime', '-29 day')
            )
            GROUP BY payment_method ORDER BY total DESC"""
     ).fetchall()
@@ -1143,9 +1531,13 @@ def dashboard():
     top_rows = conn.execute(
         """SELECT item_name AS name, SUM(qty) AS qty, ROUND(SUM(line_total), 2) AS total
            FROM (
-             SELECT item_name, qty, line_total FROM food_bill_items
+             SELECT fbi.item_name, fbi.qty, fbi.line_total
+               FROM food_bill_items fbi JOIN food_bills fb ON fb.id = fbi.bill_id
+               WHERE date(fb.created_at) >= date('now', 'localtime', '-29 day')
              UNION ALL
-             SELECT item_name, qty, line_total FROM alcohol_bill_items
+             SELECT abi.item_name, abi.qty, abi.line_total
+               FROM alcohol_bill_items abi JOIN alcohol_bills ab ON ab.id = abi.bill_id
+               WHERE date(ab.created_at) >= date('now', 'localtime', '-29 day')
            )
            GROUP BY item_name ORDER BY qty DESC, total DESC LIMIT 6"""
     ).fetchall()
@@ -1154,8 +1546,10 @@ def dashboard():
         """SELECT hour, SUM(orders) AS orders, ROUND(SUM(total), 2) AS total
            FROM (
              SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour, 1 AS orders, grand_total AS total FROM food_bills
+               WHERE date(created_at) >= date('now', 'localtime', '-29 day')
              UNION ALL
              SELECT CAST(strftime('%H', created_at) AS INTEGER) AS hour, 1 AS orders, grand_total AS total FROM alcohol_bills
+               WHERE date(created_at) >= date('now', 'localtime', '-29 day')
            )
            GROUP BY hour ORDER BY hour"""
     ).fetchall()
@@ -1200,6 +1594,195 @@ def dashboard():
         "hourly_flow": [dict(r) for r in hour_rows],
         "recent_orders": [dict(r) for r in recent_rows],
         "menu_summary": menu_summary,
+    })
+
+
+# =========================================================
+# AUDIT LOG (admin only)
+# =========================================================
+
+@app.route("/api/audit-log", methods=["GET"])
+@require_role("admin")
+def list_audit_log():
+    try:
+        limit = min(max(int(request.args.get("limit", 100)), 1), 500)
+    except (TypeError, ValueError):
+        limit = 100
+    try:
+        offset = max(int(request.args.get("offset", 0)), 0)
+    except (TypeError, ValueError):
+        offset = 0
+
+    clauses = []
+    params = []
+    action = (request.args.get("action") or "").strip()
+    entity_type = (request.args.get("entity_type") or "").strip()
+    if action:
+        clauses.append("action LIKE ?")
+        params.append(f"{action}%")
+    if entity_type:
+        clauses.append("entity_type = ?")
+        params.append(entity_type)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    conn = get_db()
+    total = conn.execute(f"SELECT COUNT(*) AS c FROM audit_log {where}", tuple(params)).fetchone()["c"]
+    rows = conn.execute(
+        f"SELECT * FROM audit_log {where} ORDER BY id DESC LIMIT ? OFFSET ?",
+        tuple(params) + (limit, offset),
+    ).fetchall()
+    conn.close()
+
+    entries = []
+    for r in rows:
+        d = dict(r)
+        if d.get("details"):
+            try:
+                d["details"] = json.loads(d["details"])
+            except (TypeError, ValueError):
+                pass
+        entries.append(d)
+    return ok({"entries": entries, "total": total, "limit": limit, "offset": offset})
+
+
+# =========================================================
+# REPORTS - CSV export (admin/manager)
+# =========================================================
+
+def _csv_response(filename, header, rows):
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(header)
+    writer.writerows(rows)
+    resp = Response(buf.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
+
+
+@app.route("/api/reports/export", methods=["GET"])
+@require_role(*MANAGE_ROLES)
+def export_report():
+    report_type = (request.args.get("type") or "all").strip().lower()
+    date_from = (request.args.get("from") or "").strip()
+    date_to = (request.args.get("to") or "").strip()
+    if report_type not in ("food", "alcohol", "all"):
+        return error("type must be food, alcohol or all")
+    if date_from and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_from):
+        return error("from must be YYYY-MM-DD")
+    if date_to and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_to):
+        return error("to must be YYYY-MM-DD")
+
+    clauses = []
+    params = []
+    if date_from:
+        clauses.append("date(created_at) >= ?")
+        params.append(date_from)
+    if date_to:
+        clauses.append("date(created_at) <= ?")
+        params.append(date_to)
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    conn = get_db()
+    rows = []
+    if report_type in ("food", "all"):
+        for r in conn.execute(f"SELECT * FROM food_bills {where} ORDER BY id", tuple(params)).fetchall():
+            rows.append(("FOOD", r))
+    if report_type in ("alcohol", "all"):
+        for r in conn.execute(f"SELECT * FROM alcohol_bills {where} ORDER BY id", tuple(params)).fetchall():
+            rows.append(("ALCOHOL", r))
+    conn.close()
+    rows.sort(key=lambda pair: pair[1]["created_at"])
+
+    header = ["Type", "Bill No", "Date", "Customer", "Phone", "Subtotal", "Discount", "Tax", "Grand Total", "Payment Method", "Status"]
+    csv_rows = [
+        (
+            kind, r["bill_no"], r["created_at"], r["customer_name"], r["customer_phone"],
+            r["subtotal"], r["discount"], r["tax"], r["grand_total"], r["payment_method"], r["status"],
+        )
+        for kind, r in rows
+    ]
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_conn = get_db()
+    log_audit(log_conn, "report.export", "bills", None, {"type": report_type, "from": date_from, "to": date_to, "rows": len(csv_rows)})
+    log_conn.commit()
+    log_conn.close()
+    return _csv_response(f"sales-report-{report_type}-{stamp}.csv", header, csv_rows)
+
+
+# =========================================================
+# WEBSITE INTEGRATION (read-only, API-key auth)
+# =========================================================
+#
+# The restaurant's public website calls this server-to-server (its own
+# backend, not the customer's browser) to display the live food menu. Keyed
+# by a static X-API-Key, not the session/cookie auth everything else uses -
+# see require_api_key above. No ordering yet; that's a separate, deferred
+# design (dine-in pre-order / reservations).
+
+def _iso_utc(value):
+    """Render a DB timestamp as ISO 8601 UTC ("...Z"). On Postgres the query
+    below converts with `AT TIME ZONE 'UTC'` before this ever sees the value,
+    so the naive string here already *is* UTC wall-clock time. On SQLite
+    (dev-only fallback) timestamps are naive OS-local time with no offset
+    recorded, so this is a best-effort label, not a real conversion."""
+    if not value:
+        return None
+    try:
+        dt = datetime.strptime(str(value)[:19], "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+@app.route("/api/website/menu", methods=["GET"])
+@require_api_key
+def website_menu():
+    updated_at_utc = "updated_at AT TIME ZONE 'UTC'" if USE_POSTGRES else "updated_at"
+    conn = get_db()
+    cat_rows = conn.execute(
+        f"""SELECT id, name, sort_order, {updated_at_utc} AS updated_at
+            FROM food_categories WHERE status = 'active'
+            ORDER BY sort_order, name"""
+    ).fetchall()
+    item_rows = conn.execute(
+        f"""SELECT id, category_id, name, description, price, stock_qty, {updated_at_utc} AS updated_at
+            FROM food_items WHERE status = 'active'
+            ORDER BY category_id, name"""
+    ).fetchall()
+    conn.close()
+
+    items_by_cat = {}
+    for r in item_rows:
+        items_by_cat.setdefault(r["category_id"], []).append(r)
+
+    latest = None
+    categories = []
+    for c in cat_rows:
+        latest = max(filter(None, [latest, c["updated_at"]]), default=None)
+        cat_items = []
+        for it in items_by_cat.get(c["id"], []):
+            latest = max(filter(None, [latest, it["updated_at"]]), default=None)
+            # Every row here already satisfies status='active' via the WHERE
+            # clause above; the only remaining condition is stock.
+            available = it["stock_qty"] is None or it["stock_qty"] > 0
+            cat_items.append({
+                "id": it["id"],
+                "name": it["name"],
+                "description": it["description"] or None,
+                "price": float(it["price"]),
+                "available": available,
+            })
+        categories.append({
+            "id": c["id"],
+            "name": c["name"],
+            "sortOrder": c["sort_order"],
+            "items": cat_items,
+        })
+
+    return jsonify({
+        "currency": "INR",
+        "updatedAt": _iso_utc(latest) or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "categories": categories,
     })
 
 
@@ -1263,20 +1846,23 @@ def qr_public_menu(token):
         return error("This table code is not valid. Please ask our staff.", 404)
 
     food_rows = conn.execute(
-        """SELECT fi.id, fi.name, fi.price, fi.status, fc.name AS category_name,
+        """SELECT fi.id, fi.name, fi.price, fi.status, fi.stock_qty, fc.name AS category_name,
                   fc.sort_order AS category_sort
            FROM food_items fi JOIN food_categories fc ON fc.id = fi.category_id
            WHERE fc.status = 'active'
            ORDER BY fc.sort_order, fi.name"""
     ).fetchall()
     alcohol_rows = conn.execute(
-        """SELECT ai.id, ai.name, ai.price, ai.status, ai.brand, ai.bottle_size,
+        """SELECT ai.id, ai.name, ai.price, ai.status, ai.stock_qty, ai.brand, ai.bottle_size,
                   ai.tax_rate, ac.name AS category_name, ac.sort_order AS category_sort
            FROM alcohol_items ai JOIN alcohol_categories ac ON ac.id = ai.category_id
            WHERE ac.status = 'active'
            ORDER BY ac.sort_order, ai.name"""
     ).fetchall()
     conn.close()
+
+    def in_stock(row):
+        return row["stock_qty"] is None or row["stock_qty"] > 0
 
     groups = []
     index = {}
@@ -1292,14 +1878,14 @@ def qr_public_menu(token):
             "id": r["id"], "kind": "food", "name": r["name"],
             "price": round(float(r["price"]), 2), "tax_rate": 0,
             "brand": None, "bottle_size": None,
-            "available": r["status"] == "active",
+            "available": r["status"] == "active" and in_stock(r),
         })
     for r in alcohol_rows:
         bucket(r["category_name"], (1, r["category_sort"]))["items"].append({
             "id": r["id"], "kind": "alcohol", "name": r["name"],
             "price": round(float(r["price"]), 2), "tax_rate": float(r["tax_rate"] or 0),
             "brand": r["brand"], "bottle_size": r["bottle_size"],
-            "available": r["status"] == "active",
+            "available": r["status"] == "active" and in_stock(r),
         })
 
     groups.sort(key=lambda g: g["sort"])
@@ -1346,14 +1932,14 @@ def qr_place_order():
 
         if kind == "food":
             row = conn.execute(
-                "SELECT id, name, price FROM food_items WHERE id = ? AND status = 'active'",
+                "SELECT id, name, price, stock_qty FROM food_items WHERE id = ? AND status = 'active'",
                 (item_id,),
             ).fetchone()
             brand = bottle = None
             tax_rate = 0.0
         else:
             row = conn.execute(
-                "SELECT id, name, price, brand, bottle_size, tax_rate FROM alcohol_items WHERE id = ? AND status = 'active'",
+                "SELECT id, name, price, brand, bottle_size, tax_rate, stock_qty FROM alcohol_items WHERE id = ? AND status = 'active'",
                 (item_id,),
             ).fetchone()
             brand = row["brand"] if row else None
@@ -1362,6 +1948,9 @@ def qr_place_order():
         if not row:
             conn.close()
             return error("One of the items is no longer available. Please refresh the menu.")
+        if row["stock_qty"] is not None and row["stock_qty"] <= 0:
+            conn.close()
+            return error(f"{row['name']} just sold out. Please remove it and try again.")
 
         price = round(float(row["price"]), 2)
         line_total = round(price * qty, 2)
@@ -1507,7 +2096,7 @@ def qr_admin_table_svg(table_id):
 
 
 @app.route("/api/qr-ordering/tables/<int:table_id>/regenerate-qr", methods=["POST"])
-@login_required
+@require_role(*MANAGE_ROLES)
 def qr_admin_regenerate(table_id):
     conn = get_db()
     table = conn.execute(
@@ -1521,6 +2110,7 @@ def qr_admin_regenerate(table_id):
         "UPDATE restaurant_tables SET qr_token = ?, updated_at = datetime('now','localtime') WHERE id = ?",
         (new_token, table_id),
     )
+    log_audit(conn, "qr.regenerate", "restaurant_table", table_id, {"table_no": table["table_no"]})
     conn.commit()
     conn.close()
     return ok({"id": table_id, "qr_token": new_token, "menu_url": _menu_url_for(new_token)})
@@ -1687,9 +2277,9 @@ def qr_admin_push_to_bill(order_id):
         for it in items:
             conn.execute(
                 """INSERT INTO table_session_items
-                   (session_id, item_kind, item_name, brand, bottle_size, price, qty, tax_rate, line_total)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (session_id, it["item_kind"], it["item_name"], it["brand"], it["bottle_size"],
+                   (session_id, item_kind, item_id, item_name, brand, bottle_size, price, qty, tax_rate, line_total)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (session_id, it["item_kind"], it["item_id"], it["item_name"], it["brand"], it["bottle_size"],
                  it["price"], it["qty"], it["tax_rate"], it["line_total"]),
             )
 

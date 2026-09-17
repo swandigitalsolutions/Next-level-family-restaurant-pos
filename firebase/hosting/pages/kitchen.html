@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kitchen — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/qr.css" />
+<style>
+  .kds-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+  .kds-col { background: #f4f5f7; border-radius: 12px; padding: 10px; min-height: 200px; }
+  .kds-col h2 { margin: 4px 6px 10px; font-size: 0.95rem; text-transform: uppercase; letter-spacing: .04em; color: #445; }
+  .kds-col .count { color: #889; font-weight: 600; }
+  .kds-card { background: #fff; border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,.08); border-left: 5px solid #c9ced6; }
+  .kds-card[data-status="QUEUED"] { border-left-color: #e8a33d; }
+  .kds-card[data-status="PREPARING"] { border-left-color: #3d7de8; }
+  .kds-card[data-status="READY"] { border-left-color: #2fa85a; }
+  .kds-card .kc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .kds-card .kc-ref { font-weight: 800; font-size: 1.05rem; }
+  .kds-card .kc-where { color: #667; font-size: .85rem; }
+  .kds-card .kc-age { color: #99a; font-size: .8rem; }
+  .kds-card ul { list-style: none; padding: 0; margin: 8px 0; }
+  .kds-card li { display: flex; justify-content: space-between; padding: 3px 0; font-size: 1rem; }
+  .kds-card li .q { font-weight: 800; margin-right: 10px; }
+  .kds-card .kc-note { background: #fff7e6; border-radius: 6px; padding: 4px 8px; font-size: .82rem; margin: 6px 0; }
+  .kds-card .kc-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .kds-card .kc-actions .btn { flex: 1; }
+  @media (max-width: 900px) { .kds-board { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Kitchen</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content">
+      <div class="panel">
+        <div class="qr-toolbar">
+          <span><span class="qr-live-dot"></span><span>Realtime — accepted orders</span></span>
+          <div class="spacer"></div>
+          <button class="btn btn-primary btn-sm" id="soundToggle">🔔 Sound on</button>
+        </div>
+        <div class="kds-board" id="kdsBoard"></div>
+        <div id="kdsEmpty" class="empty-state" style="display:none;">No tickets — waiting for billing to accept orders</div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="../js/page-gate.js"></script>
+<script type="module" src="../js/common.js"></script>
+<script type="module" src="../js/kitchen.js"></script>
+</body>
+</html>

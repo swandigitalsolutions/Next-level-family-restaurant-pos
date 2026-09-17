@@ -26,25 +26,25 @@
       <section class="stat-grid reveal reveal-delay-1">
         <article class="stat-card stat-card-primary">
           <div class="stat-card-head"><span class="stat-label">Today’s revenue</span><span class="stat-icon">↗</span></div>
-          <div class="stat-value" id="statTotalSales">₹0.00</div>
+          <div class="stat-value is-loading" id="statTotalSales">₹0.00</div>
           <div class="stat-meta"><span class="trend up" id="revenueTrend">+0.0%</span><span>vs. yesterday</span></div>
           <div class="sparkline sparkline-green"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
         </article>
         <article class="stat-card">
           <div class="stat-card-head"><span class="stat-label">Food sales</span><span class="stat-icon icon-food">◒</span></div>
-          <div class="stat-value" id="statFoodSales">₹0.00</div>
+          <div class="stat-value is-loading" id="statFoodSales">₹0.00</div>
           <div class="stat-meta"><span id="statFoodBills">0 bills</span><span>today</span></div>
           <div class="progress-line"><span id="foodProgress"></span></div>
         </article>
         <article class="stat-card">
           <div class="stat-card-head"><span class="stat-label">Bar sales</span><span class="stat-icon icon-bar">◐</span></div>
-          <div class="stat-value" id="statAlcoholSales">₹0.00</div>
+          <div class="stat-value is-loading" id="statAlcoholSales">₹0.00</div>
           <div class="stat-meta"><span id="statAlcoholBills">0 bills</span><span>today</span></div>
           <div class="progress-line progress-amber"><span id="barProgress"></span></div>
         </article>
         <article class="stat-card stat-card-soft">
           <div class="stat-card-head"><span class="stat-label">Average bill</span><span class="stat-icon icon-average">◆</span></div>
-          <div class="stat-value" id="statAverageBill">₹0.00</div>
+          <div class="stat-value is-loading" id="statAverageBill">₹0.00</div>
           <div class="stat-meta"><span id="statTotalBills">0 orders</span><span>captured today</span></div>
           <div class="mini-kpis"><span><b id="foodMenuCount">0</b> food items</span><span><b id="barMenuCount">0</b> bar items</span></div>
         </article>
@@ -54,7 +54,7 @@
         <div class="dashboard-main-column">
           <article class="panel performance-panel">
             <div class="panel-heading"><div><span class="eyebrow">REVENUE PULSE</span><h3>Sales performance</h3></div><div class="panel-heading-right"><span class="legend-dot legend-green"></span><span>Revenue</span><span class="chart-total" id="chartTotal">₹0</span></div></div>
-            <div class="chart-wrap"><svg id="salesChart" viewBox="0 0 720 240" role="img" aria-label="Seven day sales trend"></svg><div class="chart-axis" id="salesAxis"></div></div>
+            <div class="chart-wrap"><div class="skeleton-row" id="chartSkeleton" style="position:absolute;inset:14px;height:auto"></div><svg id="salesChart" viewBox="0 0 720 240" role="img" aria-label="Seven day sales trend"></svg><div class="chart-axis" id="salesAxis"></div></div>
             <div class="chart-foot"><span>Last 7 days</span><span id="chartInsight">Waiting for today’s data</span></div>
           </article>
 
@@ -65,7 +65,7 @@
             </article>
             <article class="panel hourly-panel">
               <div class="panel-heading compact"><div><span class="eyebrow">ORDER RHYTHM</span><h3>Hourly flow</h3></div><span class="soft-badge" id="peakHourBadge">Peak pending</span></div>
-              <div class="hour-bars" id="hourBars"></div>
+              <div class="hour-bars" id="hourBars"><div class="skeleton-row" style="width:100%;height:100%;margin:0"></div></div>
               <div class="hour-axis"><span>9 AM</span><span>12 PM</span><span>3 PM</span><span>6 PM</span><span>9 PM</span></div>
             </article>
           </div>
@@ -74,12 +74,12 @@
         <div class="dashboard-side-column">
           <article class="panel payment-panel">
             <div class="panel-heading compact"><div><span class="eyebrow">COLLECTION MIX</span><h3>Payment methods</h3></div><span class="chart-total" id="paymentTotal">₹0</span></div>
-            <div class="payment-body"><div class="donut" id="paymentDonut"><div><strong id="paymentCount">0</strong><small>orders</small></div></div><div class="payment-legend" id="paymentLegend"><div class="empty-state">No payments yet</div></div></div>
+            <div class="payment-body"><div class="donut" id="paymentDonut"><div><strong id="paymentCount">0</strong><small>orders</small></div></div><div class="payment-legend" id="paymentLegend"><div class="skeleton-row"></div><div class="skeleton-row"></div></div></div>
           </article>
 
           <article class="panel recent-panel">
             <div class="panel-heading compact"><div><span class="eyebrow">JUST IN</span><h3>Recent orders</h3></div><a href="orders.html" class="text-link">View all <span>↗</span></a></div>
-            <div class="recent-list" id="recentOrdersList"><div class="empty-state">No orders captured yet</div></div>
+            <div class="recent-list" id="recentOrdersList"><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div></div>
           </article>
         </div>
       </section>

@@ -1,0 +1,37 @@
+.staff-overview{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.staff-panel{overflow:hidden}
+.staff-panel-title{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.staff-panel-actions{display:flex;align-items:center;gap:10px}
+.staff-panel-actions .catalog-search{width:220px}
+.you-badge{font-size:10px;font-weight:800;color:var(--muted);padding:8px 4px;display:inline-block}
+
+.tag.role-admin{background:var(--primary-light);color:var(--primary-dark)}
+.tag.role-manager{background:var(--amber-soft);color:#9c6417}
+.tag.role-staff{background:#e6effb;color:#2b5f9e}
+.tag.role-owner{background:#eef1ee;color:var(--muted)}
+
+.role-legend{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}
+.role-card{background:#fff;border:1px solid var(--border);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow-sm)}
+.role-card .tag{margin-bottom:8px}
+.role-card p{margin:0;font-size:11.5px;color:var(--muted);line-height:1.55}
+
+.staff-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+.staff-form-grid .field{display:flex;flex-direction:column}
+.staff-form-grid .field[hidden]{display:none}
+.staff-form-grid .field:has(#staffFullName),
+.staff-form-grid .field:has(#staffPassword){grid-column:1/-1}
+.field-hint{font-size:10px;color:var(--muted-2);margin-top:5px}
+
+@media (max-width:900px){
+  .staff-overview{grid-template-columns:repeat(2,1fr)}
+  .role-legend{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:560px){
+  .staff-overview{grid-template-columns:1fr 1fr}
+  .role-legend{grid-template-columns:1fr}
+  .staff-panel-title{flex-direction:column;align-items:stretch}
+  .staff-panel-actions{flex-direction:column;align-items:stretch}
+  .staff-panel-actions .catalog-search{width:100%}
+  .staff-form-grid{grid-template-columns:1fr}
+  .staff-form-grid .field{grid-column:1/-1!important}
+}

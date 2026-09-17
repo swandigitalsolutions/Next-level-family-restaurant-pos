@@ -1,0 +1,31 @@
+{
+  "name": "nextlevel-pos-firebase",
+  "version": "0.1.0",
+  "description": "Firebase migration workspace (Hosting + Firestore + Functions) for Next Level Family Restaurant POS",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm --prefix functions install",
+    "cli": "firebase",
+    "build": "npm --prefix functions run build",
+    "typecheck": "npm --prefix functions run typecheck",
+    "lint": "npm --prefix functions run lint",
+    "test": "npm --prefix functions test",
+    "test:shim": "node --test tests/shim/api-shim.test.mjs",
+    "test:rules": "node ./tests/rules/run.mjs",
+    "test:integration": "node ./tests/integration/run.mjs",
+    "test:hosting": "node ./tests/hosting/run.mjs",
+    "test:emulator": "npm run test:rules && npm run test:integration && npm run test:hosting",
+    "check": "npm run lint && npm run typecheck && npm run build && npm test && npm run test:shim && npm run test:emulator",
+    "emulators": "firebase emulators:start",
+    "emulators:functions": "npm run build && firebase emulators:start --only functions",
+    "seed": "node ./scripts/seedEmulator.mjs",
+    "etl:dry": "node ./scripts/etl-firestore.mjs --target dry",
+    "etl:emulator": "firebase emulators:exec --only firestore,auth --project demo-nextlevel-etl \"node scripts/etl-firestore.mjs --source scripts/fixtures/etl-source.sqlite --target emulator --create-auth-users --project demo-nextlevel-etl\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
+    "firebase-tools": "^13.29.1"
+  }
+}

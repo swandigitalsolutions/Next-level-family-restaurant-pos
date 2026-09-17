@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Food Billing — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/billing.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+
+  <div class="main-area">
+    <header class="topbar">
+      <h1>Food Billing</h1>
+      <div class="user-chip" id="userChip"></div>
+    </header>
+
+    <main class="content billing-content">
+      <section class="table-floor panel reveal" aria-label="Dining tables">
+        <div class="table-floor-head">
+          <div><span class="eyebrow">DINING FLOOR</span><h2>Table billing</h2><p id="tableSummary">Select a table to start a live bill.</p></div>
+          <div class="table-floor-actions"><button class="btn btn-outline btn-sm" id="counterSaleBtn">Counter sale</button><button class="btn btn-primary btn-sm" id="addTableBtn">+ Add table</button></div>
+        </div>
+        <div class="table-list" id="tableList">
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+        </div>
+      </section>
+      <div class="billing-grid">
+
+        <!-- LEFT: Categories -->
+        <div class="cat-panel panel">
+          <div class="panel-title">Categories</div>
+          <div class="cat-list" id="categoryList">
+            <div class="skel skel-line" style="width:88%"></div>
+            <div class="skel skel-line" style="width:72%"></div>
+            <div class="skel skel-line" style="width:80%"></div>
+            <div class="skel skel-line" style="width:65%"></div>
+            <div class="skel skel-line" style="width:78%"></div>
+          </div>
+        </div>
+
+        <!-- CENTER: Menu items -->
+        <div class="menu-panel panel">
+          <div class="menu-panel-head">
+            <input type="search" id="searchBox" placeholder="Search food items..." />
+          </div>
+          <div class="item-grid" id="itemGrid">
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Cart / bill -->
+        <div class="cart-panel panel">
+          <div class="panel-title">Current Bill</div>
+
+          <div class="cart-fields">
+            <div class="field">
+              <label>Customer Name</label>
+              <input type="text" id="customerName" placeholder="Walk-in customer" />
+            </div>
+            <div class="field">
+              <label>Customer Phone</label>
+              <input type="tel" id="customerPhone" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div class="cart-list" id="cartList">
+            <div class="empty-state">No items added yet</div>
+          </div>
+
+          <div class="cart-actions-row">
+            <button class="btn btn-outline btn-sm" id="clearCartBtn">Clear Cart</button>
+          </div>
+
+          <div class="cart-fields">
+            <div class="field">
+              <label>Discount</label>
+              <div class="discount-row">
+                <input type="number" id="discountInput" value="0" min="0" />
+                <select id="discountMode" aria-label="Discount unit">
+                  <option value="rupee">₹</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Tax (%)</label>
+              <input type="number" id="taxInput" value="5" min="0" max="100" step="0.5" />
+              <small class="field-hint">Saved as the default for future bills until you change it.</small>
+            </div>
+            <div class="field">
+              <label>Payment Method</label>
+              <select id="paymentMethod">
+                <option>Cash</option>
+                <option>Card</option>
+                <option>UPI</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="totals-box">
+            <div class="t-row"><span>Subtotal</span><span id="tSubtotal">₹0.00</span></div>
+            <div class="t-row"><span id="tTaxLabel">Tax (5%)</span><span id="tTax">₹0.00</span></div>
+            <div class="t-row"><span id="tDiscountLabel">Discount</span><span id="tDiscount">− ₹0.00</span></div>
+            <div class="t-row grand"><span>Grand Total</span><span id="tGrandTotal">₹0.00</span></div>
+          </div>
+
+          <button class="btn btn-primary btn-block" id="confirmBillBtn" disabled>Confirm Bill</button>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Table Modal -->
+<div class="modal-overlay" id="tableModal">
+  <div class="modal-box table-modal-box">
+    <div class="modal-header"><h2 id="tableModalTitle">Open table</h2><span class="close-x" id="closeTableModalBtn">&times;</span></div>
+    <div class="modal-body">
+      <form id="tableForm" class="table-form">
+        <div class="field"><label>Table name / number</label><input id="tableNumberInput" required placeholder="T13 or Patio 1" /></div>
+        <div class="field"><label>Seats</label><input id="tableSeatsInput" type="number" min="1" value="4" required /></div>
+        <div class="field"><label>Customer name</label><input id="tableCustomerInput" placeholder="Walk-in customer" /></div>
+        <div class="field"><label>Customer phone</label><input id="tablePhoneInput" placeholder="Optional" /></div>
+        <button class="btn btn-primary btn-block" type="submit" id="saveTableBtn">Open table</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Confirm Bill</h2>
+      <span class="close-x" id="closeModalBtn">&times;</span>
+    </div>
+    <div class="modal-body" id="confirmModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="editBillBtn">Edit Bill</button>
+      <button class="btn btn-outline" id="confirmOnlyBtn">Confirm only</button>
+      <button class="btn btn-primary" id="confirmPrintBtn">Confirm &amp; Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden 80mm receipt for printing -->
+<div id="printArea"></div>
+
+<script src="../assets/menu-image-map.js"></script>
+<script src="../js/correct-food-image-map.js"></script>
+<script src="../js/page-gate.js"></script>
+  <script type="module" src="../js/common.js"></script>
+<script type="module" src="../js/billing.js"></script>
+</body>
+</html>

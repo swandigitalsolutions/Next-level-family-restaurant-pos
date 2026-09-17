@@ -1,0 +1,51 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "runtime": "nodejs20",
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
+    }
+  ],
+  "hosting": {
+    "public": "hosting",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      { "source": "/menu/**", "destination": "/pages/qr-menu.html" },
+      { "source": "/api/website/menu", "function": { "functionId": "websiteMenu", "region": "asia-south1" } },
+      { "source": "/api/razorpay/webhook", "function": { "functionId": "razorpayWebhook", "region": "asia-south1" } },
+      { "source": "/api/website/**", "function": { "functionId": "websiteApi", "region": "asia-south1" } },
+      { "source": "/api/qr/**", "function": { "functionId": "qrApi", "region": "asia-south1" } },
+      { "source": "/api/reports/export", "function": { "functionId": "exportReport", "region": "asia-south1" } }
+    ],
+    "headers": [
+      {
+        "//": "No content-hashed filenames in this no-build app -> the browser must revalidate JS/HTML/CSS every load so a deploy is picked up immediately (ETag makes the revalidation cheap).",
+        "source": "**/*.@(js|mjs|css|html)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "//": "Static media can be cached hard.",
+        "source": "**/*.@(jpg|jpeg|png|webp|svg|ico|woff2)",
+        "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }]
+      }
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "functions": { "port": 5001 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true
+  }
+}

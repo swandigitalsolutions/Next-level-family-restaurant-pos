@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audit Log — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/audit.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-title"><span class="eyebrow">ACCOUNTABILITY</span><h1>Audit Log</h1></div>
+      <div class="topbar-actions"><div class="user-chip" id="userChip"></div></div>
+    </header>
+
+    <main class="content">
+      <section class="panel audit-panel reveal">
+        <div class="panel-title audit-panel-title">
+          <span>Activity trail</span>
+          <div class="audit-filters">
+            <select id="entityFilter">
+              <option value="">All areas</option>
+              <option value="user">Staff accounts</option>
+              <option value="food_item">Food items</option>
+              <option value="alcohol_item">Bar products</option>
+              <option value="food_bill">Food bills</option>
+              <option value="alcohol_bill">Alcohol bills</option>
+              <option value="table_session">Table settlements</option>
+              <option value="restaurant_table">Tables / QR</option>
+              <option value="bills">Reports</option>
+            </select>
+            <button class="btn btn-outline btn-sm" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr>
+            </thead>
+            <tbody id="auditBody">
+              <tr class="skel-row"><td colspan="4"><div class="skel skel-line" style="width:92%"></div></td></tr>
+              <tr class="skel-row"><td colspan="4"><div class="skel skel-line" style="width:80%"></div></td></tr>
+              <tr class="skel-row"><td colspan="4"><div class="skel skel-line" style="width:86%"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="auditEmpty" class="empty-state" hidden>No activity recorded yet.</div>
+        <div class="audit-pager">
+          <button class="btn btn-outline btn-sm" id="prevPageBtn">← Newer</button>
+          <span id="pageInfo"></span>
+          <button class="btn btn-outline btn-sm" id="nextPageBtn">Older →</button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/audit.js"></script>
+</body>
+</html>

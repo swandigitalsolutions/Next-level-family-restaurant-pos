@@ -25,14 +25,25 @@
           <div><span class="eyebrow">DINING FLOOR</span><h2>Table billing</h2><p id="tableSummary">Select a table to start a live bill.</p></div>
           <div class="table-floor-actions"><button class="btn btn-outline btn-sm" id="counterSaleBtn">Counter sale</button><button class="btn btn-primary btn-sm" id="addTableBtn">+ Add table</button></div>
         </div>
-        <div class="table-list" id="tableList"></div>
+        <div class="table-list" id="tableList">
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+          <div class="skel" style="height:96px;border-radius:12px"></div>
+        </div>
       </section>
       <div class="billing-grid">
 
         <!-- LEFT: Categories -->
         <div class="cat-panel panel">
           <div class="panel-title">Categories</div>
-          <div class="cat-list" id="categoryList"></div>
+          <div class="cat-list" id="categoryList">
+            <div class="skel skel-line" style="width:88%"></div>
+            <div class="skel skel-line" style="width:72%"></div>
+            <div class="skel skel-line" style="width:80%"></div>
+            <div class="skel skel-line" style="width:65%"></div>
+            <div class="skel skel-line" style="width:78%"></div>
+          </div>
         </div>
 
         <!-- CENTER: Menu items -->
@@ -40,7 +51,14 @@
           <div class="menu-panel-head">
             <input type="search" id="searchBox" placeholder="Search food items..." />
           </div>
-          <div class="item-grid" id="itemGrid"></div>
+          <div class="item-grid" id="itemGrid">
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+            <div class="skel-card"><div class="skel"></div><div class="skel-card-body"><div class="skel skel-line" style="width:60%"></div><div class="skel skel-line" style="width:85%"></div></div></div>
+          </div>
         </div>
 
         <!-- RIGHT: Cart / bill -->

@@ -33,24 +33,24 @@
 
         <section class="menu-panel-section active" id="tab-food-items">
           <div class="section-toolbar"><div><span class="eyebrow">FOOD LIBRARY</span><h3>Plates, pours & favourites</h3></div><div class="toolbar-actions"><input class="catalog-search" id="foodCatalogSearch" type="search" placeholder="Search food items…"><button class="btn btn-primary" id="focusFoodForm"><span class="btn-plus">+</span> Add food item</button></div></div>
-          <div class="add-panel panel" id="foodAddPanel"><div class="panel-title">Add food item</div><form class="form-inline" id="foodItemForm"><input name="name" placeholder="Item name" required /><select name="category_id" id="foodItemCategorySelect" required></select><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><button class="btn btn-primary" type="submit">Add item</button></form></div>
+          <div class="add-panel panel" id="foodAddPanel"><div class="panel-title">Add food item</div><form class="form-inline form-inline-stock" id="foodItemForm"><input name="name" placeholder="Item name" required /><select name="category_id" id="foodItemCategorySelect" required></select><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><input name="stock_qty" type="number" step="1" min="0" placeholder="Stock (blank = unlimited)" /><button class="btn btn-primary" type="submit">Add item</button></form></div>
           <div id="foodItemsBody" class="admin-item-grid"></div>
         </section>
 
         <section class="menu-panel-section" id="tab-food-cats">
           <div class="section-toolbar"><div><span class="eyebrow">FOOD TAXONOMY</span><h3>Food categories</h3></div></div>
-          <div class="panel category-manager"><div class="panel-title">Add food category</div><form class="form-inline" id="foodCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="foodCatsBody"></tbody></table></div>
+          <div class="panel category-manager"><div class="panel-title">Add food category</div><form class="form-inline" id="foodCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><div class="table-scroll"><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="foodCatsBody"></tbody></table></div></div>
         </section>
 
         <section class="menu-panel-section" id="tab-alcohol-items">
           <div class="section-toolbar"><div><span class="eyebrow">BAR LIBRARY</span><h3>Bar products & cocktails</h3></div><div class="toolbar-actions"><input class="catalog-search" id="alcoholCatalogSearch" type="search" placeholder="Search bar products…"><button class="btn btn-primary" id="focusAlcoholForm"><span class="btn-plus">+</span> Add product</button></div></div>
-          <div class="add-panel panel" id="alcoholAddPanel"><div class="panel-title">Add bar product</div><form class="form-inline form-inline-wide" id="alcoholItemForm"><input name="name" placeholder="Product name" required /><select name="category_id" id="alcoholItemCategorySelect" required></select><input name="brand" placeholder="Brand" /><input name="bottle_size" placeholder="Bottle size (e.g. 750ml)" /><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><input name="tax_rate" type="number" step="0.01" min="0" placeholder="Tax %" value="0" /><button class="btn btn-primary" type="submit">Add product</button></form></div>
+          <div class="add-panel panel" id="alcoholAddPanel"><div class="panel-title">Add bar product</div><form class="form-inline form-inline-wide" id="alcoholItemForm"><input name="name" placeholder="Product name" required /><select name="category_id" id="alcoholItemCategorySelect" required></select><input name="brand" placeholder="Brand" /><input name="bottle_size" placeholder="Bottle size (e.g. 750ml)" /><input name="price" type="number" step="0.01" min="0" placeholder="Price" required /><input name="tax_rate" type="number" step="0.01" min="0" placeholder="Tax %" value="0" /><input name="stock_qty" type="number" step="1" min="0" placeholder="Stock (blank = unlimited)" /><button class="btn btn-primary" type="submit">Add product</button></form></div>
           <div id="alcoholItemsBody" class="admin-item-grid"></div>
         </section>
 
         <section class="menu-panel-section" id="tab-alcohol-cats">
           <div class="section-toolbar"><div><span class="eyebrow">BAR TAXONOMY</span><h3>Bar categories</h3></div></div>
-          <div class="panel category-manager"><div class="panel-title">Add bar category</div><form class="form-inline" id="alcoholCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="alcoholCatsBody"></tbody></table></div>
+          <div class="panel category-manager"><div class="panel-title">Add bar category</div><form class="form-inline" id="alcoholCatForm"><input name="name" placeholder="Category name" required /><button class="btn btn-primary" type="submit">Add category</button></form><div class="table-scroll"><table><thead><tr><th>Category</th><th>Status</th><th></th></tr></thead><tbody id="alcoholCatsBody"></tbody></table></div></div>
         </section>
       </section>
     </main>

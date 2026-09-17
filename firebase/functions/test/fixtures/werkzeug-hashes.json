@@ -1,0 +1,63 @@
+{
+  "werkzeug_version": "3.0.3",
+  "cases": [
+    {
+      "label": "scrypt_default",
+      "password": "nextlevel@123",
+      "hash": "scrypt:32768:8:1$1BGGNCu7VgxxfKlg$6c4d1444df3d5a9f30f3e8b352d4fb188d9b6961bd808aa2a922df8b106e22e364e7265c19d9c39d3d008298d41d704b984c2de3a8838eeaf33ba680a2745366",
+      "wrong": "nextlevel@123x",
+      "method_arg": null
+    },
+    {
+      "label": "scrypt_explicit",
+      "password": "correct horse battery staple",
+      "hash": "scrypt:32768:8:1$MkpdpObFjOuhXZa2$1c29772c6290ce4883411f095e1d040a5ead0eafaa01d680447ae71ea02dce3c77d99f17d3b098c75b581efccc84394701180a6aa67d18b9d0f19c89969cce1d",
+      "wrong": "correct horse battery staplex",
+      "method_arg": "scrypt"
+    },
+    {
+      "label": "scrypt_params_16384",
+      "password": "p@ss word 2",
+      "hash": "scrypt:16384:8:1$IbqpwQPSnXCqCNoi$b001e3307363301235113e2c17911a9d18c2f9c831f4405bffa72c5114a46dfb503cce15a075cbf835162811e7254d5953b26c40e8a0a7bf53f115b91c62c541",
+      "wrong": "p@ss word 2x",
+      "method_arg": "scrypt:16384:8:1"
+    },
+    {
+      "label": "pbkdf2_sha256_default",
+      "password": "owner@123",
+      "hash": "pbkdf2:sha256:600000$8ibf0PnLPMv2VLSJ$9388a438575a11214f5d5be138343598a48f9e1d77bc2d279684fec50f8f8261",
+      "wrong": "owner@123x",
+      "method_arg": "pbkdf2:sha256"
+    },
+    {
+      "label": "pbkdf2_sha256_120000",
+      "password": "another-Secret-1",
+      "hash": "pbkdf2:sha256:120000$KZ4g7EmMwsp86B6N$2e31aba169268c083f1a9481b5c33231594c79a9b95ce15c40ab83330096756a",
+      "wrong": "another-Secret-1x",
+      "method_arg": "pbkdf2:sha256:120000"
+    },
+    {
+      "label": "pbkdf2_sha1_legacy",
+      "password": "legacy-pw",
+      "hash": "pbkdf2:sha1:100000$bVt0fLp5degXuXv2$56a20651b558b3166da3f53af3c0faf682a7828c",
+      "wrong": "legacy-pwx",
+      "method_arg": "pbkdf2:sha1:100000"
+    },
+    {
+      "label": "db_admin",
+      "password": "nextlevel@123",
+      "hash": "scrypt:32768:8:1$Z2gQbb7dbkyklCjd$2221ef179b6297f73a625b911b3818575153127bf339546d26e0e68c9ca2befa1810bd7ed02ac26933de9c491af15f6830e4d3d5dfddfe3e3219ffd82ad40a65",
+      "wrong": "nextlevel@1234",
+      "werkzeug_verifies": true,
+      "werkzeug_rejects_wrong": true
+    },
+    {
+      "label": "db_owner",
+      "password": "owner@123",
+      "hash": "scrypt:32768:8:1$a3xEvjLGN5dDeYOf$d89625d603217e43e1c74461e26f944c11eb6c7bb2194d1821af8bc508eddfecba77d43c37f9cd7056c817ebee607c4e4ecb0a070fc49ec70f7e40f587d3926b",
+      "wrong": "owner@1234",
+      "werkzeug_verifies": true,
+      "werkzeug_rejects_wrong": true
+    }
+  ]
+}

@@ -4,6 +4,9 @@
 */
 
 const API_BASE = "/api";
+// Sample GSTIN shown on printed bills until the real registration number is
+// supplied — swap this one constant and every receipt updates.
+const RESTAURANT_GSTIN = "22AAAAA0000A1Z5";
 const OPTIMIZED_MENU_FALLBACK = "../assets/optimized/menu-reference.webp";
 const OPTIMIZED_DESSERT_FALLBACK = "../assets/optimized/menu-desserts.webp";
 const OPTIMIZED_BEVERAGE_FALLBACK = "../assets/optimized/menu-beverages.webp";
@@ -64,16 +67,29 @@ function showToast(message, isError = false) {
   toast._timer = setTimeout(() => toast.classList.remove("show"), 2800);
 }
 
+// Pages only admins/managers should reach; a "staff" (cashier) session that
+// navigates here directly (typed URL, old bookmark) is bounced to the
+// dashboard rather than shown a screen full of 403s.
+const STAFF_BLOCKED_PAGES = new Set(["menu.html", "qr-tables.html"]);
+
 async function requireAuth() {
   try {
     const user = await apiFetch("/me");
+    const page = location.pathname.split("/").pop() || "";
     // The "owner" role is view-only: keep it on the dashboard.
     if (user && user.role === "owner") {
-      const page = location.pathname.split("/").pop() || "";
       if (page !== "dashboard.html" && page !== "login.html") {
         window.location.href = "dashboard.html";
         return null;
       }
+    }
+    if (user && (page === "staff.html" || page === "audit.html") && user.role !== "admin") {
+      window.location.href = "dashboard.html";
+      return null;
+    }
+    if (user && user.role === "staff" && STAFF_BLOCKED_PAGES.has(page)) {
+      window.location.href = "dashboard.html";
+      return null;
     }
     return user;
   } catch (e) {
@@ -90,6 +106,8 @@ function navIcon(name) {
     orders: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 4v2h8V7H8Zm0 4v2h8v-2H8Zm0 4v2h5v-2H8Z"/></svg>',
     menu: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4V5Zm0 6h16v2H4v-2Zm0 6h10v2H4v-2Z"/></svg>',
     qr: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm10 0h2v2h-2v-2Zm4 0h2v2h-2v-2Zm-4 4h2v2h-2v-2Zm2-2h2v2h-2v-2Zm2 2h2v2h-2v-2Z"/></svg>',
+    staff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.3 0-8 1.66-8 5v2h16v-2c0-3.34-4.7-5-8-5Zm8.2-4.4a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2Zm.65 1.9c-.42-.06-.85-.1-1.28-.06 1.36 1 2.23 2.38 2.23 4.16v2H23v-1.6c0-2.4-2.98-3.96-5.15-4.5Z"/></svg>',
+    audit: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Zm8 1.5V8h4.5L14 3.5ZM8 13h8v1.6H8V13Zm0 3.4h8V18H8v-1.6ZM8 9.6h5v1.6H8V9.6Z"/></svg>',
     logout: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4h8a2 2 0 0 1 2 2v3h-2V6h-8v12h8v-3h2v3a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm1 7h6.2l-2.1-2.1L16.5 7l4 4-4 4-1.4-1.4 2.1-2.1H11v-2Z"/></svg>',
   };
   return icons[name] || icons.dashboard;
@@ -105,6 +123,8 @@ function renderSidebar(activeKey, user) {
     </a>`;
 
   const isOwner = user && user.role === "owner";
+  const isAdmin = user && user.role === "admin";
+  const canManageCatalog = user && (user.role === "admin" || user.role === "manager");
 
   const fullNav = `
       <div class="nav-section">Overview</div>
@@ -114,9 +134,11 @@ function renderSidebar(activeKey, user) {
       ${item("alcohol-billing", "alcohol-billing.html", "Bar Billing", "drinks")}
       <div class="nav-section">Manage</div>
       ${item("orders", "orders.html", "Orders & Bills", "orders")}
-      ${item("menu", "menu.html", "Menu Studio", "menu")}
+      ${canManageCatalog ? item("menu", "menu.html", "Menu Studio", "menu") : ""}
+      ${isAdmin ? item("staff", "staff.html", "Staff", "staff") : ""}
+      ${isAdmin ? item("audit", "audit.html", "Audit Log", "audit") : ""}
       <div class="nav-section">QR Ordering</div>
-      ${item("qr-tables", "qr-tables.html", "Tables & QR Codes", "qr")}
+      ${canManageCatalog ? item("qr-tables", "qr-tables.html", "Tables & QR Codes", "qr") : ""}
       <a href="qr-orders.html" class="${activeKey === "qr-orders" ? "active" : ""}" title="Live Orders">
         <span class="icon">${navIcon("orders")}</span><span class="label">Live Orders</span>
         <span class="nav-badge" id="qrOrdersBadge" hidden></span>

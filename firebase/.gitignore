@@ -1,0 +1,12 @@
+node_modules/
+functions/lib/
+functions/node_modules/
+coverage/
+*.log
+.env
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pubsub-debug.log
+/tools/jdk/

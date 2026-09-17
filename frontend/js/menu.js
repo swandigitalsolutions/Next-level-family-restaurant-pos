@@ -8,6 +8,13 @@
   let ALCOHOL_CATS = [];
   let ALCOHOL_ITEMS = [];
 
+  function stockPill(stockQty) {
+    if (stockQty === null || stockQty === undefined) return `<div class="stock-pill cell-stock">Unlimited stock</div>`;
+    if (stockQty <= 0) return `<div class="stock-pill cell-stock is-out">Out of stock</div>`;
+    if (stockQty <= 5) return `<div class="stock-pill cell-stock is-low">Only ${stockQty} left</div>`;
+    return `<div class="stock-pill cell-stock">${stockQty} in stock</div>`;
+  }
+
   // ---------------- Tabs ----------------
   document.querySelectorAll(".menu-tab").forEach(tab => {
     tab.addEventListener("click", () => {
@@ -198,7 +205,7 @@
     body.innerHTML = filtered.map(i => `
       <article class="menu-admin-card" data-id="${i.id}">
         <div class="admin-card-image"><img src="${menuImage(i)}" alt="${escapeHtml(i.name)}" loading="lazy" decoding="async"><span class="admin-card-status ${i.status === 'active' ? 'is-active' : ''}">${i.status}</span></div>
-        <div class="admin-card-body"><div class="admin-card-kicker cell-category">${escapeHtml(i.category_name)}</div><div class="cell-name admin-card-name">${escapeHtml(i.name)}</div><div class="admin-card-footer"><span class="cell-price admin-card-price">${formatMoney(i.price)}</span><div class="row-actions"><button class="btn btn-outline btn-sm act-edit-item">Edit</button><button class="btn btn-danger btn-sm act-delete-item">Delete</button></div></div></div>
+        <div class="admin-card-body"><div class="admin-card-kicker cell-category">${escapeHtml(i.category_name)}</div><div class="cell-name admin-card-name">${escapeHtml(i.name)}</div>${stockPill(i.stock_qty)}<div class="admin-card-footer"><span class="cell-price admin-card-price">${formatMoney(i.price)}</span><div class="row-actions"><button class="btn btn-outline btn-sm act-edit-item">Edit</button><button class="btn btn-danger btn-sm act-delete-item">Delete</button></div></div></div>
       </article>
     `).join("");
     body.querySelectorAll(".act-edit-item").forEach(btn => btn.addEventListener("click", () => startEditFoodItem(btn.closest(".menu-admin-card"))));
@@ -217,6 +224,7 @@
     row.querySelector(".cell-name").innerHTML = `<input class="edit-input edit-name" value="${escapeHtml(item.name)}" />`;
     row.querySelector(".cell-category").innerHTML = `<select class="edit-input edit-cat">${catOptions}</select>`;
     row.querySelector(".cell-price").innerHTML = `<input class="edit-input edit-price" type="number" step="0.01" min="0" value="${item.price}" />`;
+    row.querySelector(".cell-stock").innerHTML = `<input class="edit-input edit-stock" type="number" step="1" min="0" placeholder="Stock (blank = unlimited)" value="${item.stock_qty ?? ""}" />`;
 
     const actionsCell = row.querySelector(".row-actions");
     actionsCell.innerHTML = `
@@ -227,9 +235,10 @@
       const name = row.querySelector(".edit-name").value.trim();
       const category_id = Number(row.querySelector(".edit-cat").value);
       const price = row.querySelector(".edit-price").value;
+      const stock_qty = row.querySelector(".edit-stock").value;
       if (!name) { showToast("Item name is required", true); return; }
       try {
-        await apiFetch(`/food/items/${id}`, { method: "PUT", body: { name, category_id, price } });
+        await apiFetch(`/food/items/${id}`, { method: "PUT", body: { name, category_id, price, stock_qty } });
         showToast("Item updated");
         await loadAll();
       } catch (err) {
@@ -262,6 +271,7 @@
       name: form.name.value.trim(),
       category_id: Number(form.category_id.value),
       price: form.price.value,
+      stock_qty: form.stock_qty.value,
     };
     if (!payload.name || !payload.category_id) {
       showToast("Name and category are required", true);
@@ -294,7 +304,7 @@
     body.innerHTML = filtered.map(i => `
       <article class="menu-admin-card" data-id="${i.id}">
         <div class="admin-card-image admin-card-image-bar"><img src="${menuImage(i, "alcohol")}" alt="${escapeHtml(i.name)}" loading="lazy" decoding="async"><span class="admin-card-status ${i.status === 'active' ? 'is-active' : ''}">${i.status}</span></div>
-        <div class="admin-card-body"><div class="admin-card-kicker cell-category">${escapeHtml(i.category_name)} · ${escapeHtml(i.bottle_size || "Pour")}</div><div class="cell-name admin-card-name">${escapeHtml(i.name)}</div><div class="admin-card-sub">${escapeHtml(i.brand || "House selection")} · Tax ${i.tax_rate}%</div><div class="admin-card-footer"><span class="cell-price admin-card-price">${formatMoney(i.price)}</span><div class="row-actions"><button class="btn btn-outline btn-sm act-edit-alc">Edit</button><button class="btn btn-danger btn-sm act-delete-alc">Delete</button></div></div></div>
+        <div class="admin-card-body"><div class="admin-card-kicker cell-category">${escapeHtml(i.category_name)}</div><div class="cell-name admin-card-name">${escapeHtml(i.name)}</div><div class="admin-card-sub"><span class="cell-brand">${escapeHtml(i.brand || "House selection")}</span> · <span class="cell-size">${escapeHtml(i.bottle_size || "Pour")}</span> · Tax <span class="cell-tax">${i.tax_rate}</span>%</div>${stockPill(i.stock_qty)}<div class="admin-card-footer"><span class="cell-price admin-card-price">${formatMoney(i.price)}</span><div class="row-actions"><button class="btn btn-outline btn-sm act-edit-alc">Edit</button><button class="btn btn-danger btn-sm act-delete-alc">Delete</button></div></div></div>
       </article>
     `).join("");
     body.querySelectorAll(".act-edit-alc").forEach(btn => btn.addEventListener("click", () => startEditAlcoholItem(btn.closest(".menu-admin-card"))));
@@ -316,6 +326,7 @@
     row.querySelector(".cell-size").innerHTML = `<input class="edit-input edit-size" value="${escapeHtml(item.bottle_size || "")}" />`;
     row.querySelector(".cell-price").innerHTML = `<input class="edit-input edit-price" type="number" step="0.01" min="0" value="${item.price}" />`;
     row.querySelector(".cell-tax").innerHTML = `<input class="edit-input edit-tax" type="number" step="0.01" min="0" value="${item.tax_rate}" />`;
+    row.querySelector(".cell-stock").innerHTML = `<input class="edit-input edit-stock" type="number" step="1" min="0" placeholder="Stock (blank = unlimited)" value="${item.stock_qty ?? ""}" />`;
 
     const actionsCell = row.querySelector(".row-actions");
     actionsCell.innerHTML = `
@@ -330,6 +341,7 @@
         bottle_size: row.querySelector(".edit-size").value.trim(),
         price: row.querySelector(".edit-price").value,
         tax_rate: row.querySelector(".edit-tax").value,
+        stock_qty: row.querySelector(".edit-stock").value,
       };
       if (!payload.name) { showToast("Product name is required", true); return; }
       try {
@@ -369,6 +381,7 @@
       bottle_size: form.bottle_size.value.trim(),
       price: form.price.value,
       tax_rate: form.tax_rate.value || 0,
+      stock_qty: form.stock_qty.value,
     };
     if (!payload.name || !payload.category_id) {
       showToast("Product name and category are required", true);

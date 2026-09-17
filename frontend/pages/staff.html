@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Staff &amp; Roles — Next Level Family Restaurant</title>
+<link rel="icon" href="../assets/brand/next-level-logo.jpeg" />
+<link rel="stylesheet" href="../css/base.css" />
+<link rel="stylesheet" href="../css/staff.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebarMount"></aside>
+  <div class="main-area">
+    <header class="topbar">
+      <div class="topbar-title"><span class="eyebrow">ACCESS CONTROL</span><h1>Staff &amp; Roles</h1></div>
+      <div class="topbar-actions"><div class="user-chip" id="userChip"></div></div>
+    </header>
+
+    <main class="content">
+      <section class="staff-overview reveal">
+        <div class="overview-stat"><span class="overview-icon">◒</span><div><strong id="statTotal">—</strong><span>total accounts</span></div></div>
+        <div class="overview-stat"><span class="overview-icon amber">◐</span><div><strong id="statActive">—</strong><span>active</span></div></div>
+        <div class="overview-stat"><span class="overview-icon slate">▦</span><div><strong id="statAdmins">—</strong><span>admins</span></div></div>
+        <div class="overview-stat"><span class="overview-icon">◈</span><div><strong id="statCashiers">—</strong><span>managers &amp; staff</span></div></div>
+      </section>
+
+      <section class="panel staff-panel reveal reveal-delay-1">
+        <div class="panel-title staff-panel-title">
+          <span>Team accounts</span>
+          <div class="staff-panel-actions">
+            <input class="catalog-search" id="staffSearch" type="search" placeholder="Search staff…" />
+            <button class="btn btn-primary" id="addStaffBtn"><span class="btn-plus">+</span> Add staff</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Username</th><th>Phone</th><th>Role</th><th>Status</th><th>Added</th><th></th></tr>
+            </thead>
+            <tbody id="staffBody">
+              <tr class="skel-row"><td colspan="7"><div class="skel skel-line" style="width:90%"></div></td></tr>
+              <tr class="skel-row"><td colspan="7"><div class="skel skel-line" style="width:82%"></div></td></tr>
+              <tr class="skel-row"><td colspan="7"><div class="skel skel-line" style="width:86%"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="staffEmpty" class="empty-state" hidden>No staff accounts match that search.</div>
+      </section>
+
+      <section class="role-legend reveal reveal-delay-2">
+        <div class="role-card"><span class="tag role-admin">Admin</span><p>Full access: billing, menu, tables, dashboard and staff management.</p></div>
+        <div class="role-card"><span class="tag role-manager">Manager</span><p>Runs day-to-day operations and edits the menu, but cannot manage staff accounts.</p></div>
+        <div class="role-card"><span class="tag role-staff">Staff</span><p>Billing, table service and QR live orders only — the cashier/waiter role.</p></div>
+        <div class="role-card"><span class="tag role-owner">Owner</span><p>View-only dashboard access. No billing, editing or management screens.</p></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<div class="modal-overlay" id="staffModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="staffModalTitle">Add staff</h2>
+      <button class="close-x" type="button" id="staffModalClose" aria-label="Close">&times;</button>
+    </div>
+    <form id="staffForm">
+      <div class="modal-body staff-form-grid">
+        <div class="field">
+          <label for="staffFullName">Full name</label>
+          <input id="staffFullName" name="full_name" type="text" required maxlength="80" placeholder="e.g. Ravi Kumar" />
+        </div>
+        <div class="field">
+          <label for="staffUsername">Username</label>
+          <input id="staffUsername" name="username" type="text" required maxlength="32" placeholder="e.g. ravi.k" autocomplete="off" />
+          <small class="field-hint">Lowercase letters, numbers, dot or underscore. Cannot be changed later.</small>
+        </div>
+        <div class="field">
+          <label for="staffPhone">Phone</label>
+          <input id="staffPhone" name="phone" type="tel" maxlength="20" placeholder="10-digit mobile number" />
+        </div>
+        <div class="field">
+          <label for="staffRole">Role</label>
+          <select id="staffRole" name="role" required>
+            <option value="staff">Staff — billing &amp; orders</option>
+            <option value="manager">Manager — operations &amp; menu</option>
+            <option value="admin">Admin — full access</option>
+            <option value="owner">Owner — view-only dashboard</option>
+          </select>
+        </div>
+        <div class="field" id="staffStatusField" hidden>
+          <label for="staffStatus">Status</label>
+          <select id="staffStatus" name="status">
+            <option value="active">Active</option>
+            <option value="inactive">Inactive (blocked from login)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="staffPassword" id="staffPasswordLabel">Password</label>
+          <input id="staffPassword" name="password" type="password" minlength="6" autocomplete="new-password" placeholder="At least 6 characters" />
+          <small class="field-hint" id="staffPasswordHint">Leave blank to keep the current password.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" type="button" id="staffCancelBtn">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="staffSaveBtn">Add staff</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../js/common.js"></script>
+<script src="../js/staff.js"></script>
+</body>
+</html>

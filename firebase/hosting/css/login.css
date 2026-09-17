@@ -1,0 +1,122 @@
+/* NEXT LEVEL FAMILY RESTAURANT — sign-in */
+
+body{background:var(--bg);overflow:auto}
+
+.auth{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns:1.05fr 1fr;
+}
+
+/* ---------- left / brand side ---------- */
+.auth-aside{
+  position:relative;
+  background:linear-gradient(165deg,#3a1a17 0%,#24100e 55%,#170a09 100%);
+  color:#f0dcd6;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+}
+.auth-aside:before{
+  content:"";position:absolute;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(200,16,46,.30),transparent 68%);
+  top:-160px;right:-140px;
+}
+.auth-aside:after{
+  content:"";position:absolute;width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle,rgba(242,168,29,.20),transparent 70%);
+  bottom:-170px;left:-120px;
+}
+.auth-aside-inner{
+  position:relative;z-index:1;
+  padding:64px 66px;
+  max-width:520px;
+  display:flex;flex-direction:column;gap:44px;
+}
+.auth-brand{display:flex;align-items:center;gap:14px}
+.auth-mark{
+  width:62px;height:62px;border-radius:50%;flex-shrink:0;
+  background:#fff;display:grid;place-items:center;overflow:hidden;
+  box-shadow:0 14px 30px -10px rgba(200,16,46,.6),0 0 0 3px rgba(255,255,255,.12);
+}
+.auth-mark img{width:100%;height:100%;object-fit:contain;display:block}
+.auth-brand-copy{display:flex;flex-direction:column;gap:5px}
+.auth-brand-copy .b1{font-size:15px;font-weight:800;letter-spacing:.1em;color:#fff}
+.auth-brand-copy .b2{font-size:9px;font-weight:700;letter-spacing:.26em;color:#f2a81d}
+
+.auth-pitch h2{
+  font-size:30px;line-height:1.2;font-weight:800;letter-spacing:-.025em;
+  margin:0 0 14px;color:#fff;
+}
+.auth-pitch p{margin:0;font-size:14px;line-height:1.65;color:#d3b4ad;max-width:38ch}
+
+.auth-points{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.auth-points li{display:flex;align-items:center;gap:12px;font-size:13px;color:#e4cbc4;font-weight:500}
+.auth-points li span{
+  width:20px;height:20px;border-radius:7px;flex-shrink:0;
+  background:rgba(242,168,29,.20);
+  position:relative;
+}
+.auth-points li span:after{
+  content:"";position:absolute;left:6.5px;top:3.5px;width:5px;height:9px;
+  border:solid #f2a81d;border-width:0 2px 2px 0;transform:rotate(42deg);
+}
+
+/* ---------- right / form side ---------- */
+.auth-main{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 24px;
+  gap:22px;
+}
+.auth-card{
+  width:100%;max-width:392px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);
+  padding:38px 38px 30px;
+  animation:fadeUp .5s var(--ease-out) both;
+}
+.auth-card-head{margin-bottom:26px}
+.auth-card-head .eyebrow{display:block;margin-bottom:12px}
+.auth-card-head h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0 0 8px;color:var(--text)}
+.auth-card-head p{margin:0;font-size:13px;line-height:1.6;color:var(--muted)}
+
+.auth-card .field{margin-bottom:16px}
+.auth-card .field input{padding:12px 14px;font-size:13.5px}
+
+.auth-error{
+  color:var(--danger);font-size:12px;font-weight:600;
+  min-height:16px;margin:2px 0 10px;
+}
+.auth-error:not(:empty){
+  background:var(--danger-soft);border:1px solid #eecac6;
+  padding:9px 12px;border-radius:10px;margin-top:6px;
+}
+
+.auth-submit{
+  padding:13px;font-size:13px;margin-top:4px;
+}
+.auth-submit span{font-size:15px;transition:transform .18s var(--ease-out)}
+.auth-submit:hover span{transform:translateX(3px)}
+
+.auth-hint{
+  text-align:center;font-size:11.5px;color:var(--muted);
+  margin-top:22px;padding-top:18px;border-top:1px solid var(--border);
+}
+.auth-hint strong{color:var(--text);font-weight:700}
+
+.auth-foot{
+  font-size:11px;color:var(--muted-2);margin:0;text-align:center;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:960px){
+  .auth{grid-template-columns:1fr}
+  .auth-aside{display:none}
+  .auth-main{min-height:100vh}
+}
+@media (max-width:440px){
+  .auth-card{padding:30px 24px 24px;border-radius:20px}
+  .auth-card-head h1{font-size:23px}
+}

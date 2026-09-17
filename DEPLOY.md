@@ -54,6 +54,7 @@ free Postgres is deleted 30 days after creation; Supabase's free tier is not.)
 | `PYTHON_VERSION` | `3.12.6` |
 | `RENDER` | `true` |
 | `TZ` | `Asia/Kolkata` |
+| `WEBSITE_API_KEYS` | Only if the public website integration is live — comma-separated key(s) it sends as `X-API-Key`. See `API.md`. |
 
 Click **Deploy Web Service**. On first boot the app creates its tables in the
 Postgres database and seeds the menu + admin user. When live, the service URL

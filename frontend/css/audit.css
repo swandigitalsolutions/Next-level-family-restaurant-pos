@@ -1,0 +1,14 @@
+.audit-panel{overflow:hidden}
+.audit-panel-title{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.audit-filters{display:flex;align-items:center;gap:8px}
+.audit-filters select{min-width:170px}
+.who-role{display:inline-block;margin-left:6px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted-2)}
+.audit-details{color:var(--muted);font-size:11px;max-width:420px}
+.audit-pager{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+.audit-pager button:disabled{opacity:.4;cursor:not-allowed}
+
+@media (max-width:700px){
+  .audit-panel-title{flex-direction:column;align-items:stretch}
+  .audit-filters{flex-direction:column;align-items:stretch}
+  .audit-filters select{width:100%}
+}

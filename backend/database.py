@@ -159,8 +159,9 @@ class _CursorWrapper:
 class _PgConnection:
     """sqlite3.Connection-shaped wrapper around a psycopg connection."""
 
-    def __init__(self, raw):
+    def __init__(self, raw, pool=None):
         self._raw = raw
+        self._pool = pool
 
     def execute(self, sql, params=()):
         params = tuple(params) if params else None
@@ -195,6 +196,20 @@ class _PgConnection:
         self._raw.rollback()
 
     def close(self):
+        if self._pool is not None:
+            # Return the physical connection to the pool instead of tearing
+            # down the TCP/TLS session. Roll back first so a caller who forgot
+            # to commit (or bailed out after an error) never hands the pool a
+            # connection sitting mid-transaction.
+            try:
+                self._raw.rollback()
+            except Exception:
+                pass
+            try:
+                self._pool.putconn(self._raw)
+            except Exception:
+                pass
+            return
         try:
             self._raw.close()
         except Exception:
@@ -208,20 +223,47 @@ def _postgres_dsn():
     return dsn
 
 
+_pg_pool = None
+
+
+def _configure_pg_connection(raw):
+    """Runs once per *physical* connection when the pool opens it - not on
+    every checkout - so the per-request path below never pays for it."""
+    raw.execute(f"SET TIME ZONE '{LOCAL_TZ}'")
+    raw.commit()
+
+
+def _get_pg_pool():
+    global _pg_pool
+    if _pg_pool is None:
+        from psycopg_pool import ConnectionPool
+
+        # Every request used to open a brand-new TCP + TLS + auth connection to
+        # Postgres and throw it away - measurably slow, and a real risk of
+        # exhausting the server's max_connections once more than a couple of
+        # gunicorn workers are busy at once. A pool keeps a small number of
+        # physical connections warm and hands them out per-request instead.
+        max_size = int(os.environ.get("DB_POOL_MAX", "10"))
+        _pg_pool = ConnectionPool(
+            _postgres_dsn(),
+            min_size=1,
+            max_size=max_size,
+            kwargs={
+                "autocommit": False,
+                "prepare_threshold": None,  # required behind PgBouncer / Supabase's transaction pooler
+                "row_factory": _row_factory,
+            },
+            configure=_configure_pg_connection,
+            open=True,
+        )
+    return _pg_pool
+
+
 def get_db():
     if USE_POSTGRES:
-        # prepare_threshold=None disables prepared statements so the connection
-        # works through PgBouncer / Supabase's transaction pooler.
-        raw = psycopg.connect(
-            _postgres_dsn(),
-            autocommit=False,
-            prepare_threshold=None,
-            row_factory=_row_factory,
-        )
-        conn = _PgConnection(raw)
-        raw.execute(f"SET TIME ZONE '{LOCAL_TZ}'")
-        raw.commit()
-        return conn
+        pool = _get_pg_pool()
+        raw = pool.getconn()
+        return _PgConnection(raw, pool=pool)
 
     # timeout lets a worker wait out a short write lock instead of failing
     # immediately when more than one gunicorn worker touches the file.
@@ -237,13 +279,36 @@ def get_db():
     return conn
 
 
+# Indexes on every column the app actually filters or joins on. Without these,
+# each of these queries degrades from an index lookup to a full table scan as
+# the bills/orders history grows - fine at a few hundred rows, not fine after
+# a year of real service. IF NOT EXISTS is valid CREATE INDEX syntax on both
+# SQLite and Postgres, so one block covers both schemas below.
+INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_food_bills_created_at ON food_bills (created_at);
+CREATE INDEX IF NOT EXISTS idx_alcohol_bills_created_at ON alcohol_bills (created_at);
+CREATE INDEX IF NOT EXISTS idx_food_bill_items_bill_id ON food_bill_items (bill_id);
+CREATE INDEX IF NOT EXISTS idx_alcohol_bill_items_bill_id ON alcohol_bill_items (bill_id);
+CREATE INDEX IF NOT EXISTS idx_table_sessions_table_status ON table_sessions (table_id, status);
+CREATE INDEX IF NOT EXISTS idx_table_session_items_session_id ON table_session_items (session_id);
+CREATE INDEX IF NOT EXISTS idx_qr_orders_table_id ON qr_orders (table_id);
+CREATE INDEX IF NOT EXISTS idx_qr_orders_status ON qr_orders (status);
+CREATE INDEX IF NOT EXISTS idx_qr_orders_created_at ON qr_orders (created_at);
+CREATE INDEX IF NOT EXISTS idx_qr_order_items_qr_order_id ON qr_order_items (qr_order_id);
+CREATE INDEX IF NOT EXISTS idx_food_items_category_id ON food_items (category_id);
+CREATE INDEX IF NOT EXISTS idx_alcohol_items_category_id ON alcohol_items (category_id);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity_type ON audit_log (entity_type);
+"""
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name TEXT,
+    phone TEXT,
     role TEXT NOT NULL DEFAULT 'staff',
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
@@ -261,6 +326,8 @@ CREATE TABLE IF NOT EXISTS food_items (
     name TEXT NOT NULL,
     category_id INTEGER NOT NULL,
     price REAL NOT NULL,
+    stock_qty INTEGER,
+    description TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -284,6 +351,7 @@ CREATE TABLE IF NOT EXISTS alcohol_items (
     bottle_size TEXT,
     price REAL NOT NULL,
     tax_rate REAL NOT NULL DEFAULT 0,
+    stock_qty INTEGER,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
@@ -324,6 +392,7 @@ CREATE TABLE IF NOT EXISTS table_session_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL,
     item_kind TEXT NOT NULL DEFAULT 'food',
+    item_id INTEGER,
     item_name TEXT NOT NULL,
     brand TEXT,
     bottle_size TEXT,
@@ -442,7 +511,22 @@ CREATE TABLE IF NOT EXISTS qr_order_items (
     line_total REAL NOT NULL,
     FOREIGN KEY (qr_order_id) REFERENCES qr_orders(id) ON DELETE CASCADE
 );
-"""
+
+-- Append-only trail of who did what: staff account changes, catalog price
+-- edits, bill creation/voids and table settlement. Read-only from the app's
+-- perspective (nothing ever UPDATEs or DELETEs a row here).
+CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id INTEGER,
+    actor_username TEXT,
+    actor_role TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    details TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+""" + INDEXES
 
 # Postgres equivalent of SCHEMA. Same tables and columns; SERIAL ids, real
 # TIMESTAMPTZ defaults, and NUMERIC money columns so ROUND(x, 2) works in the
@@ -453,7 +537,9 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     full_name TEXT,
+    phone TEXT,
     role TEXT NOT NULL DEFAULT 'staff',
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -471,6 +557,8 @@ CREATE TABLE IF NOT EXISTS food_items (
     name TEXT NOT NULL,
     category_id INTEGER NOT NULL REFERENCES food_categories(id),
     price NUMERIC(12, 2) NOT NULL,
+    stock_qty INTEGER,
+    description TEXT,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -493,6 +581,7 @@ CREATE TABLE IF NOT EXISTS alcohol_items (
     bottle_size TEXT,
     price NUMERIC(12, 2) NOT NULL,
     tax_rate NUMERIC(6, 2) NOT NULL DEFAULT 0,
+    stock_qty INTEGER,
     status TEXT NOT NULL DEFAULT 'active',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -530,6 +619,7 @@ CREATE TABLE IF NOT EXISTS table_session_items (
     id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL REFERENCES table_sessions(id) ON DELETE CASCADE,
     item_kind TEXT NOT NULL DEFAULT 'food',
+    item_id INTEGER,
     item_name TEXT NOT NULL,
     brand TEXT,
     bottle_size TEXT,
@@ -638,7 +728,19 @@ CREATE TABLE IF NOT EXISTS qr_order_items (
     tax_rate NUMERIC(6, 2) NOT NULL DEFAULT 0,
     line_total NUMERIC(12, 2) NOT NULL
 );
-"""
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id SERIAL PRIMARY KEY,
+    actor_id INTEGER,
+    actor_username TEXT,
+    actor_role TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    details TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+""" + INDEXES
 
 FOOD_SEED = {
     "Starters": [
@@ -887,6 +989,16 @@ def _init_postgres():
             "CREATE UNIQUE INDEX IF NOT EXISTS restaurant_tables_qr_token_key "
             "ON restaurant_tables (qr_token)"
         )
+        # Additive migration for installs that predate staff management (phone/status).
+        conn._raw.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+        conn._raw.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'"
+        )
+        # Additive migration for installs that predate stock tracking / audit log.
+        conn._raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
+        conn._raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS description TEXT")
+        conn._raw.execute("ALTER TABLE alcohol_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
+        conn._raw.execute("ALTER TABLE table_session_items ADD COLUMN IF NOT EXISTS item_id INTEGER")
         conn._raw.commit()
         _seed(conn)
         conn._raw.execute("SELECT pg_advisory_unlock(872734)")
@@ -913,6 +1025,12 @@ def init_db():
         ("alcohol_bills", "table_id", "INTEGER"),
         ("alcohol_bills", "table_session_id", "INTEGER"),
         ("restaurant_tables", "qr_token", "TEXT"),
+        ("users", "phone", "TEXT"),
+        ("users", "status", "TEXT NOT NULL DEFAULT 'active'"),
+        ("food_items", "stock_qty", "INTEGER"),
+        ("food_items", "description", "TEXT"),
+        ("alcohol_items", "stock_qty", "INTEGER"),
+        ("table_session_items", "item_id", "INTEGER"),
     ):
         existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in existing_columns:

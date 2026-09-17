@@ -30,24 +30,42 @@
           </select>
           <input type="date" id="dateFilter" />
           <button class="btn btn-outline btn-sm" id="clearFiltersBtn">Clear Filters</button>
+          <span class="toolbar-spacer"></span>
+          <div class="export-controls" id="exportControls" hidden>
+            <input type="date" id="exportFrom" title="From date" />
+            <input type="date" id="exportTo" title="To date" />
+            <button class="btn btn-outline btn-sm" id="exportCsvBtn">Export CSV</button>
+          </div>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Bill No.</th>
-              <th>Type</th>
-              <th>Customer</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Payment</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="ordersBody"></tbody>
-        </table>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Bill No.</th>
+                <th>Type</th>
+                <th>Customer</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="ordersBody">
+              <tr class="skel-row"><td colspan="8"><div class="skel skel-line" style="width:96%"></div></td></tr>
+              <tr class="skel-row"><td colspan="8"><div class="skel skel-line" style="width:88%"></div></td></tr>
+              <tr class="skel-row"><td colspan="8"><div class="skel skel-line" style="width:92%"></div></td></tr>
+              <tr class="skel-row"><td colspan="8"><div class="skel skel-line" style="width:80%"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
         <div id="ordersEmpty" class="empty-state" style="display:none;">No orders found</div>
+        <div class="orders-pager">
+          <button class="btn btn-outline btn-sm" id="ordersPrevBtn">← Newer</button>
+          <span id="ordersPageInfo"></span>
+          <button class="btn btn-outline btn-sm" id="ordersNextBtn">Older →</button>
+        </div>
       </div>
     </main>
   </div>

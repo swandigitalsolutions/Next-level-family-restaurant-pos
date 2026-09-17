@@ -3,47 +3,85 @@
   if (!user) return;
   renderSidebar("orders", user);
 
-  let ORDERS = [];
+  if (user.role === "admin" || user.role === "manager") {
+    document.getElementById("exportControls").hidden = false;
+    document.getElementById("exportCsvBtn").addEventListener("click", () => {
+      const from = document.getElementById("exportFrom").value;
+      const to = document.getElementById("exportTo").value;
+      const typeFilter = document.getElementById("typeFilter").value;
+      const type = typeFilter === "FOOD" ? "food" : typeFilter === "ALCOHOL" ? "alcohol" : "all";
+      const params = new URLSearchParams({ type });
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      downloadCsv(`/reports/export?${params.toString()}`);
+    });
+  }
 
-  async function loadOrders() {
+  async function downloadCsv(path) {
     try {
-      ORDERS = await apiFetch("/orders");
-      renderOrders();
+      const res = await fetch(API_BASE + path, { credentials: "include" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error((body && body.error) || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : "export.csv";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     } catch (err) {
       showToast(err.message, true);
     }
   }
 
-  function renderOrders() {
-    const query = (document.getElementById("searchBox").value || "").toLowerCase().trim();
-    const typeFilter = document.getElementById("typeFilter").value;
-    const dateFilter = document.getElementById("dateFilter").value; // YYYY-MM-DD
+  // Filtering, search and paging all happen server-side now (see /api/orders) -
+  // this page used to fetch every bill ever created on every visit, which was
+  // fine with a handful of rows and would only get slower the longer the
+  // restaurant stays open. Only the current page's worth of rows ever reaches
+  // the browser.
+  const PAGE_SIZE = 25;
+  let offset = 0;
+  let total = 0;
+  let searchDebounce = null;
 
-    let filtered = ORDERS;
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(o => o.type === typeFilter);
-    }
-    if (dateFilter) {
-      filtered = filtered.filter(o => (o.created_at || "").startsWith(dateFilter));
-    }
-    if (query) {
-      filtered = filtered.filter(o =>
-        o.bill_no.toLowerCase().includes(query) ||
-        (o.customer_name || "").toLowerCase().includes(query)
-      );
-    }
+  async function loadOrders() {
+    try {
+      const params = new URLSearchParams({ limit: PAGE_SIZE, offset });
+      const typeFilter = document.getElementById("typeFilter").value;
+      const dateFilter = document.getElementById("dateFilter").value;
+      const query = document.getElementById("searchBox").value.trim();
+      if (typeFilter !== "all") params.set("type", typeFilter);
+      if (dateFilter) params.set("date", dateFilter);
+      if (query) params.set("search", query);
 
+      const result = await apiFetch(`/orders?${params.toString()}`);
+      total = result.total;
+      renderOrders(result.orders);
+      updatePager();
+    } catch (err) {
+      showToast(err.message, true);
+    }
+  }
+
+  function renderOrders(orders) {
     const body = document.getElementById("ordersBody");
     const emptyEl = document.getElementById("ordersEmpty");
 
-    if (filtered.length === 0) {
+    if (orders.length === 0) {
       body.innerHTML = "";
       emptyEl.style.display = "block";
       return;
     }
     emptyEl.style.display = "none";
 
-    body.innerHTML = filtered.map(o => `
+    body.innerHTML = orders.map(o => `
       <tr>
         <td><strong>${escapeHtml(o.bill_no)}</strong></td>
         <td><span class="tag ${o.type === 'FOOD' ? 'tag-food' : 'tag-alcohol'}">${o.type}</span></td>
@@ -61,14 +99,38 @@
     });
   }
 
-  document.getElementById("searchBox").addEventListener("input", renderOrders);
-  document.getElementById("typeFilter").addEventListener("change", renderOrders);
-  document.getElementById("dateFilter").addEventListener("change", renderOrders);
+  function updatePager() {
+    const from = total === 0 ? 0 : offset + 1;
+    const to = Math.min(offset + PAGE_SIZE, total);
+    document.getElementById("ordersPageInfo").textContent = `${from}–${to} of ${total}`;
+    document.getElementById("ordersPrevBtn").disabled = offset === 0;
+    document.getElementById("ordersNextBtn").disabled = offset + PAGE_SIZE >= total;
+  }
+
+  function resetAndLoad() {
+    offset = 0;
+    loadOrders();
+  }
+
+  document.getElementById("searchBox").addEventListener("input", () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(resetAndLoad, 300);
+  });
+  document.getElementById("typeFilter").addEventListener("change", resetAndLoad);
+  document.getElementById("dateFilter").addEventListener("change", resetAndLoad);
   document.getElementById("clearFiltersBtn").addEventListener("click", () => {
     document.getElementById("searchBox").value = "";
     document.getElementById("typeFilter").value = "all";
     document.getElementById("dateFilter").value = "";
-    renderOrders();
+    resetAndLoad();
+  });
+  document.getElementById("ordersPrevBtn").addEventListener("click", () => {
+    offset = Math.max(0, offset - PAGE_SIZE);
+    loadOrders();
+  });
+  document.getElementById("ordersNextBtn").addEventListener("click", () => {
+    offset += PAGE_SIZE;
+    loadOrders();
   });
 
   let currentBill = null;
@@ -119,6 +181,7 @@
     area.innerHTML = `
       <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px;">
         <strong style="font-size:15px;">NEXT LEVEL FAMILY RESTAURANT</strong><br/>
+        <span style="font-size:9px;">GSTIN: ${escapeHtml(RESTAURANT_GSTIN)}</span><br/>
         <span style="font-size:11px;">${bill.type} BILL</span><br/>
         <span style="font-size:11px;">${escapeHtml(bill.bill_no)}</span><br/>
         <span style="font-size:10px;">${escapeHtml(bill.created_at)}</span>

@@ -1,0 +1,11 @@
+/* Alcohol Billing - extends billing.css with brand/bottle-size subtext */
+.item-card .i-sub{
+  font-size:10.5px;
+  color:var(--muted);
+  margin-bottom:4px;
+}
+.item-card .i-tax{
+  font-size:10px;
+  color:var(--muted);
+  margin-top:2px;
+}

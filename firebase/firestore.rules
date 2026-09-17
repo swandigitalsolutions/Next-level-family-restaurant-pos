@@ -1,0 +1,187 @@
+rules_version = '2';
+
+// =============================================================================
+// Next Level Family Restaurant POS — Firestore Security Rules (Phase 3)
+//
+// Trust model (ARCHITECTURE.md §3, FIRESTORE-SCHEMA.md):
+//  - Everything touching money, stock, invoice numbers, roles or the audit log
+//    is written ONLY by Cloud Functions (Admin SDK, bypasses these rules).
+//  - Clients get scoped READS by role claim, plus exactly two narrow writes:
+//      * tableSessions/{id}  — staff may edit an OPEN session's cart + customer
+//      * qrOrders/{ref}       — staff may advance status one legal FSM step
+//  - The customer QR flow does NOT touch Firestore directly (served by the
+//    qrApi HTTP Function), EXCEPT a single-doc `get` on qrOrders/{ref} so the
+//    order tracker can use a realtime listener on its own opaque id.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ---------------------------------------------------------
+    // 6 roles: admin, manager, owner, billing (cashier), cafe_billing, kitchen.
+    // Carried-over claims are normalised at login (staff->billing,
+    // cafe->cafe_billing), so the rules only ever see the canonical names.
+    function isSignedIn() { return request.auth != null; }
+    function role() { return isSignedIn() ? request.auth.token.role : null; }
+    function hasRole(roles) { return isSignedIn() && (role() in roles); }
+    function isAdmin()   { return hasRole(['admin']); }
+    function isManager() { return hasRole(['manager', 'admin']); }
+    function isBilling() { return hasRole(['billing', 'manager', 'admin']); }
+    function isCafe()    { return hasRole(['cafe_billing', 'manager', 'admin']); }
+    function isKitchen() { return hasRole(['kitchen', 'manager', 'admin']); }
+    function isBillingOrCafe() { return hasRole(['billing', 'cafe_billing', 'manager', 'admin']); }
+    function isAuditReader() { return hasRole(['admin', 'owner']); }  // NOT manager
+    // any operational (non-owner) login — catalog / item-name reads
+    function isOps() { return hasRole(['billing', 'cafe_billing', 'kitchen', 'manager', 'admin']); }
+    function isOwnerOrOps() { return hasRole(['owner', 'billing', 'cafe_billing', 'kitchen', 'manager', 'admin']); }
+    // back-compat alias (old rule bodies): "staff" == the billing cashier
+    function isStaff() { return isBilling(); }
+
+    function unchanged(keys) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // ---- catalog & floor: any operational login reads, Function-only write ----
+    // kitchen needs item names for tickets; cafe needs the cafe-kind items.
+    match /categories/{id} {
+      allow read: if isOps();
+      allow write: if false;
+    }
+    match /catalog/{id} {
+      allow read: if isOps();
+      allow write: if false;
+    }
+    match /tables/{id} {
+      allow read: if isOps();
+      allow write: if false;
+    }
+
+    // ---- running tabs --------------------------------------------------
+    // Staff may edit an OPEN session's cart + customer fields. Prices/tax on
+    // those lines are staff-entered snapshots (matches Flask PUT
+    // /api/table-sessions/:id); the settle Function still recomputes every
+    // total via lib/money.ts. status / settledAt / settledBillIds and session
+    // creation are Function-only.
+    match /tableSessions/{id} {
+      allow read: if isBilling();
+      allow create, delete: if false;
+      allow update: if isBilling()
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'open'
+        && changedOnly([
+             'customerName', 'customerPhone', 'items',
+             'subtotal', 'tax', 'grandTotal', 'updatedAt'
+           ]);
+    }
+
+    // ---- immutable invoices -----------------------------------------
+    // billing reads FOOD/ALCOHOL; cafe reads its CAFE bills (same collection).
+    match /bills/{id} {
+      allow read: if isBillingOrCafe();
+      allow create, update, delete: if false;
+    }
+
+    // ---- QR orders --------------------------------------------------
+    function legalQrTransition(from, to) {
+      return (from == 'NEW' && to == 'ACCEPTED')
+          || (from == 'ACCEPTED' && to == 'PREPARING')
+          || (from == 'PREPARING' && to == 'READY')
+          || (from == 'READY' && to == 'SERVED')
+          || (to == 'CANCELLED' && (from in ['NEW', 'ACCEPTED', 'PREPARING', 'READY']));
+    }
+    match /qrOrders/{ref} {
+      allow get: if true;              // opaque publicRef == doc id (order tracker)
+      allow list: if isBilling();      // the live-orders board
+      allow create, delete: if false;  // placeQrOrder HTTP Function only
+      allow update: if isBilling()
+        && changedOnly(['status', 'updatedAt'])
+        && legalQrTransition(resource.data.status, request.resource.data.status);
+    }
+
+    // ---- Kitchen tickets: raised by billing "Accept", worked by kitchen ----
+    // Created only by the acceptOrderToKitchen Function. Kitchen (or a manager/
+    // admin) may step the status one place forward.
+    function legalKitchenTicket(from, to) {
+      return (from == 'QUEUED'    && to in ['PREPARING', 'READY', 'DONE'])
+          || (from == 'PREPARING' && to in ['READY', 'DONE'])
+          || (from == 'READY'     && to == 'DONE');
+    }
+    match /kitchenTickets/{id} {
+      allow get, list: if isKitchen();
+      allow create, delete: if false;
+      allow update: if isKitchen()
+        && changedOnly(['status', 'updatedAt', 'readyAt', 'doneAt'])
+        && legalKitchenTicket(resource.data.status, request.resource.data.status);
+    }
+
+    // ---- Website Orders channel (Phase 4b) ------------------------
+    // Staff read the POS board. Every write goes through a Cloud Function
+    // (websiteApi / razorpayWebhook / the *WebsiteOrder callables). The separate
+    // Website project has NO Firestore access — it calls websiteApi over HTTP
+    // with an X-API-Key and polls GET /api/website/orders/{ref} for status.
+    match /websiteOrders/{id} {
+      allow get, list: if isBilling();
+      allow create, update, delete: if false;
+    }
+    // Razorpay payment de-dup / webhook idempotency markers: Functions only.
+    match /websitePayments/{id} {
+      allow read, write: if false;
+    }
+    // POST /api/website/orders Idempotency-Key lock + result cache: Functions only.
+    match /websiteOrderIdempotency/{key} {
+      allow read, write: if false;
+    }
+
+    // ---- sequences: totally sealed --------------------------------
+    match /counters/{name} {
+      allow read, write: if false;
+    }
+
+    // ---- audit trail: admin + owner read only (manager excluded), never client write ----
+    match /auditLog/{id} {
+      allow read: if isAuditReader();
+      allow create, update, delete: if false;
+    }
+
+    // ---- users: admin (any) or self read; profile carries no secret ----
+    match /users/{uid} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == uid);
+      allow write: if false;
+    }
+
+    // ---- userCredentials: password hashes — NOBODY, admin included ----
+    match /userCredentials/{uid} {
+      allow read, write: if false;
+    }
+
+    // ---- dashboard rollups: owner + any operational login read ----
+    match /stats/{doc=**} {
+      allow read: if isOwnerOrOps();
+      allow write: if false;
+    }
+
+    // ---- login throttle: sealed --------------------------------
+    match /authThrottle/{id} {
+      allow read, write: if false;
+    }
+
+    // ---- small runtime config: owner + any operational login read ----
+    match /config/{id} {
+      allow read: if isOwnerOrOps();
+      allow write: if false;
+    }
+
+    // ---- ETL bookkeeping: Admin SDK only ----------------------
+    match /_migration/{doc=**} {
+      allow read, write: if false;
+    }
+
+    // ---- default deny ----------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
