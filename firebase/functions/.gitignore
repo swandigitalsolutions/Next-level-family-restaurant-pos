@@ -1,5 +1,10 @@
 node_modules/
-lib/
+# Anchored to THIS directory: an unanchored "lib/" matches a directory named
+# lib at ANY depth, which silently excluded all of src/lib/ - 20 source files,
+# including money.ts and authz.ts - from the repository. Everything that was
+# committed imported from files that were not, so the track could not be built
+# from a fresh clone.
+/lib/
 coverage/
 *.log
 .env
