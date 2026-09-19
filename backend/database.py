@@ -9,6 +9,7 @@ bundled SQLite file. The rest of the codebase keeps using the same
 compatibility layer below translates it to psycopg for Postgres.
 """
 
+import logging
 import os
 import re
 import secrets
@@ -17,10 +18,13 @@ import sqlite3
 import uuid
 from datetime import date as _date, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from werkzeug.security import generate_password_hash as _generate_password_hash
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+_log = logging.getLogger("nextlevel.db")
 
 # Werkzeug defaults to scrypt, which some minimal Python builds (e.g. macOS
 # system Python) lack. PASSWORD_HASH_METHOD lets local dev fall back to
@@ -49,6 +53,17 @@ DB_PATH = os.environ.get("DB_PATH", BUNDLED_DB_PATH)
 LOCAL_TZ = os.environ.get("TZ", "Asia/Kolkata")
 if not re.fullmatch(r"[A-Za-z0-9_+\-/]+", LOCAL_TZ or ""):
     LOCAL_TZ = "Asia/Kolkata"
+
+# Used to render TIMESTAMPTZ values in the restaurant's own clock. If the host
+# has no tz database at all, fall back to leaving values as the driver returned
+# them rather than refusing to boot - a slightly-off timestamp beats no POS.
+try:
+    _LOCAL_ZONE = ZoneInfo(LOCAL_TZ)
+except Exception:  # noqa: BLE001 - missing/unknown zone on a bare container
+    try:
+        _LOCAL_ZONE = ZoneInfo("Asia/Kolkata")
+    except Exception:  # noqa: BLE001
+        _LOCAL_ZONE = None
 
 if USE_POSTGRES:
     try:
@@ -84,8 +99,17 @@ class _Row(dict):
 
 def _coerce(value):
     """Make Postgres values look like the SQLite ones app.py expects: timestamps
-    and dates as strings, numeric/Decimal as float."""
+    and dates as strings, numeric/Decimal as float.
+
+    A TIMESTAMPTZ comes back from psycopg as an *aware* datetime rendered in
+    whatever the session's TimeZone happens to be, and formatting it drops the
+    offset - so the bill time printed on a customer's receipt would silently
+    follow the session default (UTC) rather than the restaurant's clock. The
+    explicit conversion below pins it to the restaurant timezone regardless.
+    """
     if isinstance(value, datetime):
+        if value.tzinfo is not None and _LOCAL_ZONE is not None:
+            value = value.astimezone(_LOCAL_ZONE)
         return value.strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(value, _date):
         return value.strftime("%Y-%m-%d")
@@ -122,14 +146,38 @@ _RE_INSERT_TABLE = re.compile(r"insert\s+into\s+[\"']?(\w+)", re.I)
 # "RETURNING id" appended.
 _NO_ID_TABLES = {"counters"}
 
+# Every "what local day/hour is this?" rewrite names the restaurant's timezone
+# explicitly instead of leaning on the connection's session TimeZone. The
+# production database is reached through Supabase's *transaction* pooler
+# (pgbouncer, port 6543), which hands a different physical backend to each
+# transaction - so a `SET TIME ZONE` issued once when the pool opens a
+# connection is not reliably in effect later. With the session default
+# (UTC), `date(created_at) = date('now','localtime')` silently shifts the
+# business day by 5.5 hours, putting every bill written between midnight and
+# 05:30 IST on the wrong day of the dashboard and the CSV export. Naming the
+# zone in the SQL makes the answer identical no matter which backend runs it.
+_PG_LOCAL_NOW = f"(now() AT TIME ZONE '{LOCAL_TZ}')"
+
+
+def _at_local(expr):
+    return f"(({expr}) AT TIME ZONE '{LOCAL_TZ}')"
+
 
 def _translate(sql, has_params):
+    # now() stays an absolute instant: it is written into TIMESTAMPTZ columns,
+    # where converting to wall-clock first would double-apply the offset.
     sql = _RE_DATETIME_NOW.sub("now()", sql)
-    sql = _RE_DATE_NOW_OFFSET.sub(r"(CURRENT_DATE - INTERVAL '\1 day')", sql)
-    sql = _RE_DATE_NOW.sub("CURRENT_DATE", sql)
-    sql = _RE_CAST_STRFTIME_H.sub(r"EXTRACT(HOUR FROM \1)::int", sql)
-    sql = _RE_STRFTIME_H.sub(r"EXTRACT(HOUR FROM \1)::int", sql)
-    sql = _RE_DATE_COL.sub(r"(\1)::date", sql)
+    sql = _RE_DATE_NOW_OFFSET.sub(
+        lambda m: f"({_PG_LOCAL_NOW}::date - INTERVAL '{m.group(1)} day')", sql
+    )
+    sql = _RE_DATE_NOW.sub(f"{_PG_LOCAL_NOW}::date", sql)
+    sql = _RE_CAST_STRFTIME_H.sub(
+        lambda m: f"EXTRACT(HOUR FROM {_at_local(m.group(1))})::int", sql
+    )
+    sql = _RE_STRFTIME_H.sub(
+        lambda m: f"EXTRACT(HOUR FROM {_at_local(m.group(1))})::int", sql
+    )
+    sql = _RE_DATE_COL.sub(lambda m: f"{_at_local(m.group(1))}::date", sql)
     if has_params:
         # psycopg treats % as a placeholder marker when params are supplied.
         sql = sql.replace("%", "%%")
@@ -224,17 +272,37 @@ def _postgres_dsn():
 
 
 _pg_pool = None
+_pg_pool_pid = None
 
 
 def _configure_pg_connection(raw):
     """Runs once per *physical* connection when the pool opens it - not on
-    every checkout - so the per-request path below never pays for it."""
-    raw.execute(f"SET TIME ZONE '{LOCAL_TZ}'")
-    raw.commit()
+    every checkout - so the per-request path below never pays for it.
+
+    Note that no session state is set here on purpose. Behind Supabase's
+    transaction pooler a `SET` issued at checkout time is not reliably in
+    effect for later transactions on the same client connection (and can leak
+    into someone else's), so every timezone-sensitive expression names its
+    zone inline instead - see _translate.
+    """
+    return
 
 
 def _get_pg_pool():
-    global _pg_pool
+    global _pg_pool, _pg_pool_pid
+
+    # Fork safety. The app is started with `gunicorn --preload`, which imports
+    # this module - and therefore runs init_db(), which opens the pool - in the
+    # MASTER process, before forking the workers. Every worker would then
+    # inherit the same live TCP sockets and the pool's background threads, and
+    # two processes taking turns writing to one Postgres connection produces
+    # exactly the kind of intermittent, unreproducible corruption nobody can
+    # debug at 9pm on a Saturday. Noticing that the pid changed and building a
+    # fresh pool per worker makes that impossible, whether or not --preload is
+    # used.
+    if _pg_pool is not None and _pg_pool_pid != os.getpid():
+        _pg_pool = None
+
     if _pg_pool is None:
         from psycopg_pool import ConnectionPool
 
@@ -244,18 +312,33 @@ def _get_pg_pool():
         # gunicorn workers are busy at once. A pool keeps a small number of
         # physical connections warm and hands them out per-request instead.
         max_size = int(os.environ.get("DB_POOL_MAX", "10"))
+        # A request must not be able to hang a gunicorn worker for half a
+        # minute waiting for a connection that is never coming: a database
+        # outage should surface as a fast, clear error the cashier can act on
+        # ("try again"), not as a frozen browser tab. Both timeouts are short
+        # and tunable.
+        pool_timeout = float(os.environ.get("DB_POOL_TIMEOUT", "8"))
+        connect_timeout = int(os.environ.get("DB_CONNECT_TIMEOUT", "8"))
         _pg_pool = ConnectionPool(
             _postgres_dsn(),
             min_size=1,
             max_size=max_size,
+            timeout=pool_timeout,
             kwargs={
                 "autocommit": False,
                 "prepare_threshold": None,  # required behind PgBouncer / Supabase's transaction pooler
                 "row_factory": _row_factory,
+                "connect_timeout": connect_timeout,
             },
             configure=_configure_pg_connection,
+            # Never block boot on the database being reachable. gunicorn
+            # starting while Supabase is briefly unavailable should still bind
+            # the port and serve /healthz, then recover on its own once the
+            # database answers - not die in a restart loop.
             open=True,
+            check=ConnectionPool.check_connection,
         )
+        _pg_pool_pid = os.getpid()
     return _pg_pool
 
 
@@ -299,6 +382,60 @@ CREATE INDEX IF NOT EXISTS idx_food_items_category_id ON food_items (category_id
 CREATE INDEX IF NOT EXISTS idx_alcohol_items_category_id ON alcohol_items (category_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity_type ON audit_log (entity_type);
 """
+
+# Integrity rules that turn "the application checks first" into "the database
+# refuses". Both dialects accept this exact syntax (SQLite has supported partial
+# indexes since 3.8). They are applied separately from the schema, each in its
+# own transaction, because on an install that ALREADY contains a duplicate the
+# CREATE fails - and a failed hardening step must never stop the restaurant's
+# POS from booting. See _apply_constraints.
+CONSTRAINTS = (
+    # One open session per table, enforced by the database rather than by a
+    # read-then-insert that two concurrent "Open table" clicks both pass.
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_table_sessions_open
+       ON table_sessions (table_id) WHERE status = 'open'""",
+    # A retried bill POST carrying the same client_ref can only ever produce one
+    # bill row - the second INSERT is rejected and the handler returns the first.
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_food_bills_client_ref
+       ON food_bills (client_ref) WHERE client_ref IS NOT NULL""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_alcohol_bills_client_ref
+       ON alcohol_bills (client_ref) WHERE client_ref IS NOT NULL""",
+    # One bill per settled session per kind: a double-settle cannot bill twice.
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_food_bills_session
+       ON food_bills (table_session_id) WHERE table_session_id IS NOT NULL""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS uq_alcohol_bills_session
+       ON alcohol_bills (table_session_id) WHERE table_session_id IS NOT NULL""",
+)
+
+
+def _apply_constraints():
+    """Best-effort application of CONSTRAINTS, one independent transaction each.
+
+    A pre-existing duplicate (e.g. two open sessions for one table left behind
+    by the old read-then-insert race) makes a CREATE UNIQUE INDEX fail. That is
+    worth a loud log line and a manual cleanup - it is not worth refusing to
+    start the till. Whatever succeeds is enforced from that boot onward.
+    """
+    conn = get_db()
+    try:
+        for statement in CONSTRAINTS:
+            try:
+                conn.execute(statement)
+                conn.commit()
+            except Exception as exc:  # noqa: BLE001
+                try:
+                    conn.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
+                name = re.search(r"INDEX IF NOT EXISTS (\w+)", statement)
+                _log.warning(
+                    "Could not apply integrity constraint %s: %s. "
+                    "There is probably existing duplicate data; the application-level "
+                    "check still applies, but please clean this up.",
+                    name.group(1) if name else "?", exc,
+                )
+    finally:
+        conn.close()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -866,10 +1003,20 @@ def _qr_token():
     return secrets.token_urlsafe(12)
 
 
-def _seed(conn):
+def _seed(conn, defer_commit=False):
     """Insert the starting dining floor, default admin, menu, and bill counters.
     Every step is guarded by a count/exists check, so this is safe to run on
-    every boot and against either backend."""
+    every boot and against either backend.
+
+    ``defer_commit`` keeps every step inside the caller's transaction - used by
+    the Postgres path so the whole boot (schema + seed) is one atomic unit held
+    under a single advisory lock, which is what stops two gunicorn workers
+    starting at the same instant from both seeding the menu.
+    """
+    def commit():
+        if not defer_commit:
+            conn.commit()
+
     # Ensure the 15 QR-ordering tables exist as "Table 01".."Table 15". Existing
     # rows created by the earlier build as "T1".."T12" are renamed in place so
     # their id (and any bills/sessions that reference it) is preserved.
@@ -894,7 +1041,7 @@ def _seed(conn):
                 "INSERT INTO restaurant_tables (table_no, seats) VALUES (?, ?)",
                 (label, seats),
             )
-    conn.commit()
+    commit()
 
     # Backfill a unique QR token for every table that does not have one yet.
     for row in conn.execute(
@@ -904,7 +1051,7 @@ def _seed(conn):
             "UPDATE restaurant_tables SET qr_token = ? WHERE id = ?",
             (_qr_token(), row["id"]),
         )
-    conn.commit()
+    commit()
 
     # Seed default admin user
     existing_admin = conn.execute(
@@ -915,7 +1062,7 @@ def _seed(conn):
             "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
             ("admin", generate_password_hash("nextlevel@123"), "Administrator", "admin"),
         )
-        conn.commit()
+        commit()
 
     # Seed a view-only owner account (dashboard/insights only).
     existing_owner = conn.execute(
@@ -926,7 +1073,7 @@ def _seed(conn):
             "INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)",
             ("owner", generate_password_hash("owner@123"), "Owner", "owner"),
         )
-        conn.commit()
+        commit()
 
     # Seed food categories/items only if empty
     food_cat_count = conn.execute("SELECT COUNT(*) AS c FROM food_categories").fetchone()["c"]
@@ -942,7 +1089,7 @@ def _seed(conn):
                     "INSERT INTO food_items (name, category_id, price) VALUES (?, ?, ?)",
                     (item_name, cat_id, price),
                 )
-        conn.commit()
+        commit()
 
     # Seed alcohol categories/items only if empty
     alcohol_cat_count = conn.execute("SELECT COUNT(*) AS c FROM alcohol_categories").fetchone()["c"]
@@ -960,7 +1107,7 @@ def _seed(conn):
                        VALUES (?, ?, ?, ?, ?, ?)""",
                     (item_name, cat_id, brand, size, price, tax),
                 )
-        conn.commit()
+        commit()
 
     # Seed bill / order number counters
     for counter_name in ("food_bill", "alcohol_bill", "qr_order"):
@@ -969,42 +1116,67 @@ def _seed(conn):
         ).fetchone()
         if not existing:
             conn.execute("INSERT INTO counters (name, value) VALUES (?, 0)", (counter_name,))
-    conn.commit()
+    commit()
 
 
 def _init_postgres():
-    """Create the schema and seed data on the Postgres server. An advisory lock
-    keeps concurrent gunicorn workers from racing on the first-ever boot."""
+    """Create the schema and seed data on the Postgres server.
+
+    Everything happens inside ONE transaction guarded by a *transaction-scoped*
+    advisory lock. Two details matter for production:
+
+    * ``pg_advisory_xact_lock`` - not ``pg_advisory_lock`` - because the
+      production database is reached through Supabase's transaction pooler.
+      A session-scoped lock is taken on whichever physical backend served the
+      statement and is NOT released when the pooled connection is handed back,
+      so a crash (or simply a normal return to the pool) leaves that backend
+      holding the lock forever and the next boot blocks until it is killed.
+      The transaction-scoped variant is released by COMMIT or ROLLBACK, both
+      of which always happen, including on the error path.
+    * Postgres DDL is transactional, so schema creation, the additive column
+      migrations and the seed all commit together or not at all. A worker that
+      dies mid-boot can never leave a half-created schema behind.
+    """
     conn = get_db()
     try:
-        conn._raw.execute("SELECT pg_advisory_lock(872734)")
-        conn._raw.commit()
-        conn.executescript(PG_SCHEMA)
-        conn.commit()
+        raw = conn._raw
+        raw.execute("SELECT pg_advisory_xact_lock(872734)")
+        raw.execute(PG_SCHEMA)
         # Additive migration for installs whose restaurant_tables predates QR ordering.
-        conn._raw.execute(
+        raw.execute(
             "ALTER TABLE restaurant_tables ADD COLUMN IF NOT EXISTS qr_token TEXT"
         )
-        conn._raw.execute(
+        raw.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS restaurant_tables_qr_token_key "
             "ON restaurant_tables (qr_token)"
         )
         # Additive migration for installs that predate staff management (phone/status).
-        conn._raw.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
-        conn._raw.execute(
+        raw.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT")
+        raw.execute(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'"
         )
         # Additive migration for installs that predate stock tracking / audit log.
-        conn._raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
-        conn._raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS description TEXT")
-        conn._raw.execute("ALTER TABLE alcohol_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
-        conn._raw.execute("ALTER TABLE table_session_items ADD COLUMN IF NOT EXISTS item_id INTEGER")
-        conn._raw.commit()
-        _seed(conn)
-        conn._raw.execute("SELECT pg_advisory_unlock(872734)")
-        conn._raw.commit()
+        raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
+        raw.execute("ALTER TABLE food_items ADD COLUMN IF NOT EXISTS description TEXT")
+        raw.execute("ALTER TABLE alcohol_items ADD COLUMN IF NOT EXISTS stock_qty INTEGER")
+        raw.execute("ALTER TABLE table_session_items ADD COLUMN IF NOT EXISTS item_id INTEGER")
+        # Additive migration for retry-safe billing (see next_bill_number / app.py).
+        raw.execute("ALTER TABLE food_bills ADD COLUMN IF NOT EXISTS client_ref TEXT")
+        raw.execute("ALTER TABLE alcohol_bills ADD COLUMN IF NOT EXISTS client_ref TEXT")
+        # The seed shares this transaction so concurrent gunicorn workers cannot
+        # both decide the menu is empty and insert it twice.
+        _seed(conn, defer_commit=True)
+        raw.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        raise
     finally:
         conn.close()
+
+    _apply_constraints()
     return False
 
 
@@ -1013,8 +1185,11 @@ def init_db():
     if USE_POSTGRES:
         return _init_postgres()
 
-    _ensure_db_present()
+    # Whether this boot creates the database has to be decided *before*
+    # _ensure_db_present() copies the bundled seed file into place, otherwise
+    # the answer is always "no".
     first_time = not os.path.exists(DB_PATH)
+    _ensure_db_present()
     conn = get_db()
     conn.executescript(SCHEMA)
 
@@ -1031,6 +1206,9 @@ def init_db():
         ("food_items", "description", "TEXT"),
         ("alcohol_items", "stock_qty", "INTEGER"),
         ("table_session_items", "item_id", "INTEGER"),
+        # Retry-safe billing: see next_bill_number / create_food_bill.
+        ("food_bills", "client_ref", "TEXT"),
+        ("alcohol_bills", "client_ref", "TEXT"),
     ):
         existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in existing_columns:
@@ -1038,16 +1216,65 @@ def init_db():
 
     _seed(conn)
     conn.close()
+    _apply_constraints()
     return first_time
 
 
+# Which already-issued numbers a counter is responsible for, used only to
+# rebuild a counter row that has gone missing.
+_COUNTER_SOURCES = {
+    "food_bill": ("food_bills", "bill_no"),
+    "alcohol_bill": ("alcohol_bills", "bill_no"),
+    "qr_order": ("qr_orders", "order_no"),
+}
+
+
+def _issued_high_water(conn, counter_name, prefix):
+    source = _COUNTER_SOURCES.get(counter_name)
+    if not source:
+        return 0
+    table, column = source
+    try:
+        row = conn.execute(
+            f"""SELECT COALESCE(MAX(CAST(SUBSTR({column}, ?) AS INTEGER)), 0) AS m
+                FROM {table} WHERE {column} LIKE ?""",
+            (len(prefix) + 2, f"{prefix}-%"),
+        ).fetchone()
+        return int(row["m"] or 0)
+    except Exception as exc:  # noqa: BLE001 - never block a sale over this
+        _log.warning("Could not read high-water mark for %r: %s", counter_name, exc)
+        return 0
+
+
 def next_bill_number(conn, counter_name, prefix):
-    """Atomically increment and return the next bill number, e.g. FOOD-000001."""
+    """Atomically increment and return the next bill number, e.g. FOOD-000001.
+
+    Runs inside the caller's transaction, so the number is reserved by the same
+    row lock that protects the bill INSERT: numbers never repeat and never skip.
+
+    The counter row is created on demand. Previously a missing row (a counter
+    added in code but not present in an older database, or a row removed by
+    hand) made the UPDATE match nothing and the follow-up SELECT return None,
+    which blew up with a TypeError *in the middle of billing* - the cashier saw
+    a bare 500 and could not take money. Recovering costs one INSERT.
+    """
     conn.execute(
         "UPDATE counters SET value = value + 1 WHERE name = ?", (counter_name,)
     )
     row = conn.execute(
         "SELECT value FROM counters WHERE name = ?", (counter_name,)
     ).fetchone()
+    if row is None:
+        # Restart from the highest number already issued, not from 1, so a
+        # recreated counter cannot hand out a bill number that already exists
+        # (bill_no is UNIQUE - a collision would fail the sale outright).
+        _log.warning("Counter %r was missing; recreating it.", counter_name)
+        conn.execute(
+            "INSERT INTO counters (name, value) VALUES (?, ?)",
+            (counter_name, _issued_high_water(conn, counter_name, prefix) + 1),
+        )
+        row = conn.execute(
+            "SELECT value FROM counters WHERE name = ?", (counter_name,)
+        ).fetchone()
     number = row["value"]
     return f"{prefix}-{number:06d}"

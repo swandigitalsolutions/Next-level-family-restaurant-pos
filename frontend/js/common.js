@@ -23,12 +23,31 @@ document.addEventListener("error", (event) => {
   image.classList.add("image-fallback");
 }, true);
 
+/*
+  A key that survives retries of the SAME sale.
+
+  Counter wifi drops, a cashier taps "Save" twice because the first tap seemed
+  to do nothing, a tab is reloaded mid-save: each of those can put the same
+  bill on the wire more than once. The server refuses to create a second bill
+  for a key it has already seen, so the customer is charged once. The key must
+  be generated when the sale is confirmed and REUSED for every retry of it -
+  generating a fresh one per attempt would defeat the entire mechanism.
+*/
+function newIdempotencyKey() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 async function apiFetch(path, options = {}) {
+  const { idempotencyKey, ...rest } = options;
   const opts = {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    ...options,
+    ...rest,
   };
+  if (idempotencyKey) {
+    opts.headers = { ...opts.headers, "Idempotency-Key": idempotencyKey };
+  }
   if (opts.body && typeof opts.body !== "string") opts.body = JSON.stringify(opts.body);
 
   let res;
@@ -42,7 +61,15 @@ async function apiFetch(path, options = {}) {
   try {
     json = await res.json();
   } catch (parseErr) {
-    throw new Error("Server returned an invalid response.");
+    // A proxy timeout or crash page is HTML, not JSON. Say what actually
+    // happened and, for writes, warn that the action's fate is unknown - so
+    // nobody re-enters a bill that may already have been saved.
+    const write = (opts.method || "GET").toUpperCase() !== "GET";
+    throw new Error(
+      write
+        ? `The server did not answer properly (${res.status}). Check whether this saved before trying again.`
+        : `The server did not answer properly (${res.status}). Please try again.`
+    );
   }
 
   if (res.status === 401) {

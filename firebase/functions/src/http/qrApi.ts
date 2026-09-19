@@ -13,7 +13,7 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { getAppCheck } from "firebase-admin/app-check";
 import { randomUUID } from "crypto";
-import { REGION, RESTAURANT_NAME, QR_STATUSES, MAX_QR_LINE_QTY } from "../lib/config";
+import { REGION, RESTAURANT_NAME, QR_STATUSES, MAX_QR_LINE_QTY, MAX_QR_LINES } from "../lib/config";
 import { db as getDb } from "../lib/adminSdk";
 import { peekCounter, commitCounter } from "../lib/counters";
 import { dateKey, ValidationError } from "../lib/money";
@@ -166,6 +166,12 @@ export const qrApi = onRequest({ region: REGION, cors: true }, async (req, res) 
       const token = String(body.token || "").trim();
       const rawItems: any[] = Array.isArray(body.items) ? body.items : [];
       if (rawItems.length === 0) return err("Your cart is empty.");
+      // This route is public and unauthenticated - anyone who can photograph a
+      // table's QR can call it. Each line costs a Firestore read, so an
+      // uncapped cart is a free way to run up both latency and the bill.
+      if (rawItems.length > MAX_QR_LINES) {
+        return err(`An order can have at most ${MAX_QR_LINES} different items.`);
+      }
       const table = await tableByToken(token);
       if (!table) return err("This table code is not valid. Please ask our staff.", 404);
 
@@ -177,7 +183,10 @@ export const qrApi = onRequest({ region: REGION, cors: true }, async (req, res) 
         const kind = raw.kind === "alcohol" ? "alcohol" : "food";
         const itemId = String(raw.id || "");
         const qty = Number(raw.qty);
-        if (!itemId || !Number.isFinite(qty)) return err("That order contains an invalid item.");
+        // Integer, not merely finite: a qty of 2.5 priced a real line at half
+        // a portion and put a fractional quantity on the kitchen ticket.
+        // Track A parses this with int(); matching it keeps the two in step.
+        if (!itemId || !Number.isInteger(qty)) return err("That order contains an invalid item.");
         if (qty <= 0 || qty > MAX_QR_LINE_QTY) {
           return err(`Quantity must be between 1 and ${MAX_QR_LINE_QTY}.`);
         }

@@ -294,7 +294,13 @@
   document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
   document.getElementById("editBillBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
 
+  // One key per sale, held across retries so a second attempt is recognised as
+  // the same bill rather than becoming a duplicate charge. Cleared only once a
+  // bill has actually been saved.
+  let PENDING_BILL_KEY = null;
+
   async function finalizeBill(doPrint) {
+    if (!PENDING_BILL_KEY) PENDING_BILL_KEY = newIdempotencyKey();
     const printBtn = document.getElementById("confirmPrintBtn");
     const onlyBtn = document.getElementById("confirmOnlyBtn");
     const labels = { [printBtn.id]: printBtn.textContent, [onlyBtn.id]: onlyBtn.textContent };
@@ -311,11 +317,12 @@
         CART = [];
         await loadTables();
       } else {
-        const bill = await apiFetch("/food/bills", { method: "POST", body: { customer_name: document.getElementById("customerName").value.trim(), customer_phone: document.getElementById("customerPhone").value.trim(), items: CART, discount: computeTotals().discount, tax_percent: currentTaxPercent(), payment_method: paymentMethod } });
+        const bill = await apiFetch("/food/bills", { method: "POST", idempotencyKey: PENDING_BILL_KEY, body: { customer_name: document.getElementById("customerName").value.trim(), customer_phone: document.getElementById("customerPhone").value.trim(), items: CART, discount: computeTotals().discount, tax_percent: currentTaxPercent(), payment_method: paymentMethod } });
         showToast(`Bill ${bill.bill_no} confirmed`);
         if (doPrint) printReceipt(bill);
         CART = [];
       }
+      PENDING_BILL_KEY = null;   // this sale is banked; the next one is new
       document.getElementById("customerName").value = "";
       document.getElementById("customerPhone").value = "";
       document.getElementById("discountInput").value = 0;

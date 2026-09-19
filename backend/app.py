@@ -7,19 +7,33 @@ when DATABASE_URL is set (see database.py).
 import csv
 import io
 import json
+import logging
 import os
 import re
 import functools
 import secrets
+import threading
 import time
 import uuid
 from datetime import datetime
 
-from flask import Flask, request, jsonify, session, send_from_directory, redirect, Response
+from flask import (
+    Flask, g, request, jsonify, session, send_from_directory, redirect, Response,
+    has_app_context,
+)
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 from werkzeug.security import check_password_hash
 
-from database import get_db, init_db, next_bill_number, generate_password_hash, USE_POSTGRES
+from database import (
+    get_db as _open_db,
+    init_db,
+    next_bill_number,
+    generate_password_hash,
+    USE_POSTGRES,
+)
+
+log = logging.getLogger("nextlevel")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
@@ -71,9 +85,97 @@ def require_api_key(fn):
         return fn(*args, **kwargs)
     return wrapper
 
+# =========================================================
+# Request-scoped database connections
+# =========================================================
+#
+# Every route used to do `conn = get_db()` ... `conn.close()` on each exit
+# path. With Postgres that connection comes out of a fixed-size pool, so ANY
+# exception between those two lines - a bug, a dropped socket, a client
+# disconnect - leaked it permanently. Ten such requests and the pool is empty
+# and the entire till stops responding until someone restarts the server. That
+# is the single worst failure mode this app had.
+#
+# The connection is now owned by the request, not by the handler: it is opened
+# on first use, reused for the rest of that request, and always released in
+# teardown, whether the handler returned, raised, or the client vanished.
+# `conn.close()` inside a handler stays valid (it just does nothing), so none
+# of the existing route code had to change.
+
+class _ScopedConnection:
+    """Per-request view of a pooled connection whose close() is deferred."""
+
+    __slots__ = ("_conn",)
+
+    def __init__(self, conn):
+        object.__setattr__(self, "_conn", conn)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def close(self):
+        """No-op: teardown_appcontext owns the real close."""
+        return None
+
+
+def get_db():
+    if not has_app_context():  # pragma: no cover - scripts/CLI use
+        return _open_db()
+    conn = getattr(g, "_db_conn", None)
+    if conn is None:
+        conn = _open_db()
+        g._db_conn = conn
+    return _ScopedConnection(conn)
+
+
+@app.teardown_appcontext
+def _release_db(exc):
+    conn = g.pop("_db_conn", None)
+    if conn is None:
+        return
+    try:
+        # Anything not explicitly committed by the handler is abandoned. On the
+        # error path this is what stops a half-written bill from being visible.
+        conn.rollback()
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        conn.close()
+    except Exception:  # noqa: BLE001 - a close failure must not mask the real error
+        log.exception("Failed to release database connection")
+
+
 # Ensure the schema exists and seed data is present on every boot. This is
 # idempotent and matters for WSGI servers (gunicorn) that never run __main__.
-init_db()
+#
+# A database that is briefly unreachable at boot must not put the server into a
+# crash-restart loop: the process starts anyway, reports itself unhealthy, and
+# retries initialisation on demand until it succeeds.
+_init_lock = threading.Lock()
+_init_done = False
+_init_error = None
+
+
+def ensure_initialized():
+    """Run init_db() once per process, retrying on a later request if it failed."""
+    global _init_done, _init_error
+    if _init_done:
+        return True
+    with _init_lock:
+        if _init_done:
+            return True
+        try:
+            init_db()
+            _init_done = True
+            _init_error = None
+        except Exception as exc:  # noqa: BLE001
+            _init_error = exc
+            log.exception("Database initialisation failed; will retry on next request")
+            return False
+    return True
+
+
+ensure_initialized()
 
 
 # =========================================================
@@ -87,6 +189,16 @@ def index():
 
 @app.route("/healthz")
 def healthz():
+    """Liveness + readiness for the platform's health check.
+
+    Reports 503 while the schema has not been initialised (database
+    unreachable at boot), so a deploy that cannot see its database is visibly
+    unhealthy instead of silently serving errors to the till.
+    """
+    if not _init_done:
+        ensure_initialized()
+    if not _init_done:
+        return jsonify({"status": "degraded", "detail": "database unavailable"}), 503
     return jsonify({"status": "ok"}), 200
 
 
@@ -174,6 +286,7 @@ OWNER_ALLOWED_API = {"/api/me", "/api/logout", "/api/login", "/api/dashboard", "
 _LOGIN_ATTEMPTS = {}
 LOGIN_MAX_ATTEMPTS = 6
 LOGIN_LOCKOUT_SECONDS = 5 * 60
+LOGIN_ATTEMPTS_MAX_KEYS = 4096
 
 
 def _login_throttle_key():
@@ -194,12 +307,40 @@ def _is_login_locked(key):
 
 
 def _register_login_failure(key):
+    # The map is keyed by client IP and nothing ever removed a successful or
+    # expired entry, so a long-running worker under a spray of bogus logins grew
+    # it without bound. Sweep expired entries whenever it gets large.
+    if len(_LOGIN_ATTEMPTS) > LOGIN_ATTEMPTS_MAX_KEYS:
+        cutoff = time.time() - LOGIN_LOCKOUT_SECONDS
+        for stale in [k for k, (_, at) in _LOGIN_ATTEMPTS.items() if at < cutoff]:
+            _LOGIN_ATTEMPTS.pop(stale, None)
+        if len(_LOGIN_ATTEMPTS) > LOGIN_ATTEMPTS_MAX_KEYS:
+            # Still oversized: everything in it is recent, i.e. an active flood.
+            # Drop the oldest half rather than let memory grow without limit.
+            for stale, _ in sorted(_LOGIN_ATTEMPTS.items(), key=lambda kv: kv[1][1])[
+                : len(_LOGIN_ATTEMPTS) // 2
+            ]:
+                _LOGIN_ATTEMPTS.pop(stale, None)
     count, _ = _LOGIN_ATTEMPTS.get(key, (0, 0))
     _LOGIN_ATTEMPTS[key] = (count + 1, time.time())
 
 
 def _clear_login_failures(key):
     _LOGIN_ATTEMPTS.pop(key, None)
+
+
+@app.before_request
+def _require_initialized():
+    """Retry a failed boot-time initialisation before serving an API call."""
+    if _init_done or not request.path.startswith("/api/"):
+        return
+    if ensure_initialized():
+        return
+    return error(
+        "The system is starting up or the database is unreachable. "
+        "Please try again in a moment.",
+        503,
+    )
 
 
 @app.before_request
@@ -247,10 +388,62 @@ def to_optional_stock(value, field_name):
     return val
 
 
+# A bill POST that the browser had to retry - flaky wifi at the counter, a
+# tab reloaded mid-save, an impatient second click after the first response was
+# lost - must not create a second bill. The client sends a random key that stays
+# the same across retries of the same sale; the database's unique index on
+# client_ref makes "only one bill per key" a fact rather than a hope.
+_CLIENT_REF_RE = re.compile(r"^[A-Za-z0-9_.:-]{8,64}$")
+
+
+def request_client_ref():
+    raw = request.headers.get("Idempotency-Key") or ""
+    if not raw:
+        body = request.get_json(silent=True) or {}
+        raw = body.get("client_ref") or ""
+    raw = str(raw).strip()
+    return raw if _CLIENT_REF_RE.match(raw) else None
+
+
+def _bill_payload(conn, bill_table, items_table, bill_id, bill_type):
+    bill = conn.execute(f"SELECT * FROM {bill_table} WHERE id = ?", (bill_id,)).fetchone()
+    if not bill:
+        return None
+    items = conn.execute(
+        f"SELECT * FROM {items_table} WHERE bill_id = ?", (bill_id,)
+    ).fetchall()
+    result = dict(bill)
+    result["items"] = [dict(r) for r in items]
+    result["type"] = bill_type
+    return result
+
+
+def _bill_by_client_ref(conn, bill_table, items_table, bill_type, client_ref):
+    if not client_ref:
+        return None
+    row = conn.execute(
+        f"SELECT id FROM {bill_table} WHERE client_ref = ?", (client_ref,)
+    ).fetchone()
+    if not row:
+        return None
+    return _bill_payload(conn, bill_table, items_table, row["id"], bill_type)
+
+
 def log_audit(conn, action, entity_type, entity_id=None, details=None):
     """Append an audit trail row for a mutating action. Never raises - a
-    logging failure must not roll back or block the action it is describing."""
+    logging failure must not roll back or block the action it is describing.
+
+    On Postgres a failed statement poisons the *whole* transaction: every later
+    statement, including the COMMIT, fails with "current transaction is
+    aborted". Swallowing the audit error therefore used to convert a harmless
+    logging problem into a lost bill. The insert runs inside its own SAVEPOINT
+    so that if it fails, only it is rolled back and the sale still commits.
+    """
+    sp = None
     try:
+        if USE_POSTGRES:
+            sp = f"audit_{secrets.token_hex(4)}"
+            conn.execute(f"SAVEPOINT {sp}")
         conn.execute(
             """INSERT INTO audit_log (actor_id, actor_username, actor_role, action, entity_type, entity_id, details)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
@@ -264,8 +457,16 @@ def log_audit(conn, action, entity_type, entity_id=None, details=None):
                 json.dumps(details, default=str) if details is not None else None,
             ),
         )
+        if sp:
+            conn.execute(f"RELEASE SAVEPOINT {sp}")
     except Exception:  # noqa: BLE001
-        pass
+        log.exception("Audit log write failed for %s/%s", action, entity_type)
+        if sp:
+            try:
+                conn.execute(f"ROLLBACK TO SAVEPOINT {sp}")
+                conn.execute(f"RELEASE SAVEPOINT {sp}")
+            except Exception:  # noqa: BLE001
+                pass
 
 
 def apply_stock_delta(conn, item_kind, item_id, delta):
@@ -976,10 +1177,11 @@ def create_table():
         cur = conn.execute("INSERT INTO restaurant_tables (table_no, seats) VALUES (?, ?)", (table_no, seats))
         conn.commit()
         row = conn.execute("SELECT * FROM restaurant_tables WHERE id = ?", (cur.lastrowid,)).fetchone()
-    except Exception as exc:
+    except Exception:
         conn.rollback()
         conn.close()
-        return error(f"Could not add table: {exc}", 409)
+        log.exception("Failed to add table %r", table_no)
+        return error("Could not add this table. A table with that name may already exist.", 409)
     conn.close()
     return ok(dict(row), 201)
 
@@ -1019,13 +1221,29 @@ def open_table(table_id):
     if current:
         conn.close()
         return ok(dict(current))
-    cur = conn.execute(
-        """INSERT INTO table_sessions (table_id, customer_name, customer_phone, opened_by)
-           VALUES (?, ?, ?, ?)""",
-        ((table_id), (body.get("customer_name") or "Walk-in").strip() or "Walk-in", (body.get("customer_phone") or "-").strip() or "-", session.get("user_id")),
-    )
-    conn.execute("UPDATE restaurant_tables SET status = 'occupied', updated_at = datetime('now','localtime') WHERE id = ?", (table_id,))
-    conn.commit()
+    try:
+        cur = conn.execute(
+            """INSERT INTO table_sessions (table_id, customer_name, customer_phone, opened_by)
+               VALUES (?, ?, ?, ?)""",
+            ((table_id), (body.get("customer_name") or "Walk-in").strip() or "Walk-in", (body.get("customer_phone") or "-").strip() or "-", session.get("user_id")),
+        )
+        conn.execute("UPDATE restaurant_tables SET status = 'occupied', updated_at = datetime('now','localtime') WHERE id = ?", (table_id,))
+        conn.commit()
+    except Exception:
+        # Lost the race against another terminal opening the same table: the
+        # unique index on (table_id) WHERE status='open' rejected the second
+        # INSERT. Returning the session that won is exactly what the caller
+        # wanted - two open sessions for one table would split the guests'
+        # order across two bills.
+        conn.rollback()
+        winner = conn.execute(
+            "SELECT * FROM table_sessions WHERE table_id = ? AND status = 'open'", (table_id,)
+        ).fetchone()
+        conn.close()
+        if winner:
+            return ok(dict(winner))
+        log.exception("Failed to open table %s", table_id)
+        return error("Could not open this table. Please try again.", 500)
     opened = conn.execute("SELECT * FROM table_sessions WHERE id = ?", (cur.lastrowid,)).fetchone()
     conn.close()
     return ok(dict(opened), 201)
@@ -1060,6 +1278,8 @@ def save_table_session(session_id):
     items = body.get("items")
     if not isinstance(items, list):
         return error("Session items must be a list")
+    if len(items) > MAX_BILL_LINES:
+        return error(f"A table session can hold at most {MAX_BILL_LINES} lines.")
     conn = get_db()
     current = conn.execute("SELECT * FROM table_sessions WHERE id = ? AND status = 'open'", (session_id,)).fetchone()
     if not current:
@@ -1095,6 +1315,48 @@ def save_table_session(session_id):
     return get_table_session(session_id)
 
 
+def _existing_settlement(conn, session_id):
+    """Rebuild the settle response for a session that is already settled.
+
+    Used to make a repeated settle request idempotent: the caller gets the same
+    answer the first request produced, so a lost response or an impatient second
+    click can never turn into a second charge.
+    """
+    row = conn.execute(
+        """SELECT ts.*, rt.table_no FROM table_sessions ts
+           JOIN restaurant_tables rt ON rt.id = ts.table_id
+           WHERE ts.id = ? AND ts.status = 'settled'""",
+        (session_id,),
+    ).fetchone()
+    if not row:
+        return None
+    bills = []
+    subtotal = tax = discount = 0.0
+    payment_method = "Cash"
+    for kind, table in (("FOOD", "food_bills"), ("ALCOHOL", "alcohol_bills")):
+        for bill in conn.execute(
+            f"SELECT * FROM {table} WHERE table_session_id = ? ORDER BY id", (session_id,)
+        ).fetchall():
+            bills.append({"type": kind, "id": bill["id"]})
+            subtotal = round(subtotal + float(bill["subtotal"] or 0), 2)
+            tax = round(tax + float(bill["tax"] or 0), 2)
+            discount = round(discount + float(bill["discount"] or 0), 2)
+            payment_method = bill["payment_method"] or payment_method
+    if not bills:
+        return None
+    return {
+        "table_no": row["table_no"],
+        "session_id": session_id,
+        "bills": bills,
+        "subtotal": subtotal,
+        "tax": tax,
+        "discount": discount,
+        "grand_total": round(subtotal + tax - discount, 2),
+        "payment_method": payment_method,
+        "already_settled": True,
+    }
+
+
 @app.route("/api/table-sessions/<int:session_id>/settle", methods=["POST"])
 @login_required
 def settle_table_session(session_id):
@@ -1110,7 +1372,14 @@ def settle_table_session(session_id):
            WHERE ts.id = ? AND ts.status = 'open'""", (session_id,)
     ).fetchone()
     if not current:
+        # Already settled? Then this is almost certainly the same settlement
+        # arriving twice (double-click, or a retry after the first response was
+        # lost). Hand back the bills that settlement already produced instead of
+        # an error the cashier would "fix" by billing the table a second time.
+        settled = _existing_settlement(conn, session_id)
         conn.close()
+        if settled:
+            return ok(settled, 200)
         return error("Open table session not found", 404)
     items = conn.execute("SELECT * FROM table_session_items WHERE session_id = ? ORDER BY id", (session_id,)).fetchall()
     if not items:
@@ -1132,6 +1401,28 @@ def settle_table_session(session_id):
     settled_subtotal = 0.0
     settled_tax = 0.0
     try:
+        # Claim the session BEFORE writing any bill. This UPDATE is the lock:
+        # a second settlement of the same table - the classic double-click, or
+        # two terminals settling at once - either blocks here and then matches
+        # zero rows, or is rejected outright by the unique index on
+        # (table_session_id). Either way the restaurant never bills a table
+        # twice. Reading `status = 'open'` and trusting it, as this did before,
+        # let both requests through and produced two real bills with two real
+        # bill numbers and two stock decrements.
+        claimed = conn.execute(
+            """UPDATE table_sessions
+               SET status = 'settled', settled_at = datetime('now','localtime')
+               WHERE id = ? AND status = 'open'""",
+            (session_id,),
+        )
+        if claimed.rowcount != 1:
+            conn.rollback()
+            already = _existing_settlement(conn, session_id)
+            conn.close()
+            if already:
+                return ok(already, 200)
+            return error("This table has already been settled.", 409)
+
         for index, (kind, group) in enumerate(groups):
             group_subtotal = round(sum(float(row["line_total"]) for row in group), 2)
             group_tax = round(sum(float(row["line_total"]) * float(row["tax_rate"] or 0) / 100 for row in group), 2)
@@ -1161,16 +1452,19 @@ def settle_table_session(session_id):
                     conn.execute("INSERT INTO alcohol_bill_items (bill_id, item_name, brand, bottle_size, price, qty, tax_rate, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", (bill_id, row["item_name"], row["brand"], row["bottle_size"], row["price"], row["qty"], row["tax_rate"], row["line_total"]))
                     apply_stock_delta(conn, "alcohol", row["item_id"], -row["qty"])
             created_bills.append((kind, bill_id))
-        conn.execute("UPDATE table_sessions SET status = 'settled', settled_at = datetime('now','localtime') WHERE id = ?", (session_id,))
         conn.execute("UPDATE restaurant_tables SET status = 'available', updated_at = datetime('now','localtime') WHERE id = ?", (current["table_id"],))
         log_audit(conn, "table.settle", "table_session", session_id, {
             "table_no": current["table_no"], "grand_total": round(settled_subtotal + settled_tax - discount, 2), "discount": discount,
         })
         conn.commit()
-    except Exception as exc:
+    except Exception:
         conn.rollback()
         conn.close()
-        return error(f"Failed to settle table: {exc}", 500)
+        log.exception("Failed to settle table session %s", session_id)
+        return error(
+            "Could not settle this table. Nothing was charged - please try again.",
+            500,
+        )
     conn.close()
     return ok({"table_no": current["table_no"], "session_id": session_id, "bills": [{"type": kind.upper(), "id": bill_id} for kind, bill_id in created_bills], "subtotal": settled_subtotal, "tax": settled_tax, "discount": discount, "grand_total": round(settled_subtotal + settled_tax - discount, 2), "payment_method": payment_method}, 201)
 
@@ -1186,6 +1480,8 @@ def create_food_bill():
     items = body.get("items")
     if not isinstance(items, list) or len(items) == 0:
         return error("Bill must contain at least one item")
+    if len(items) > MAX_BILL_LINES:
+        return error(f"A bill can hold at most {MAX_BILL_LINES} lines.")
 
     try:
         discount = to_float(body.get("discount", 0), "discount")
@@ -1223,16 +1519,25 @@ def create_food_bill():
     table_id = body.get("table_id")
     table_session_id = body.get("table_session_id")
 
+    client_ref = request_client_ref()
     conn = get_db()
+
+    # Same key seen before => same sale. Return the bill that was already
+    # created rather than creating a second one.
+    existing = _bill_by_client_ref(conn, "food_bills", "food_bill_items", "FOOD", client_ref)
+    if existing:
+        conn.close()
+        return ok(existing, 200)
+
     try:
         bill_no = next_bill_number(conn, "food_bill", "FOOD")
         cur = conn.execute(
             """INSERT INTO food_bills
                (bill_no, table_id, table_session_id, customer_name, customer_phone, subtotal, discount, tax, grand_total,
-                payment_method, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                payment_method, created_by, client_ref)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (bill_no, table_id, table_session_id, customer_name, customer_phone, subtotal, discount, tax, grand_total,
-             payment_method, session.get("user_id")),
+             payment_method, session.get("user_id"), client_ref),
         )
         bill_id = cur.lastrowid
         for name, price, qty, line_total, item_id in clean_items:
@@ -1244,20 +1549,20 @@ def create_food_bill():
             apply_stock_delta(conn, "food", item_id, -qty)
         log_audit(conn, "bill.create", "food_bill", bill_id, {"bill_no": bill_no, "grand_total": grand_total})
         conn.commit()
-    except Exception as e:
+    except Exception:
         conn.rollback()
+        # Two retries that raced each other: the loser lost its INSERT to the
+        # unique index on client_ref, which is exactly the outcome we want.
+        duplicate = _bill_by_client_ref(conn, "food_bills", "food_bill_items", "FOOD", client_ref)
+        if duplicate:
+            conn.close()
+            return ok(duplicate, 200)
         conn.close()
-        return error(f"Failed to save bill: {str(e)}", 500)
+        log.exception("Failed to save food bill")
+        return error("Could not save this bill. Nothing was charged - please try again.", 500)
 
-    bill = conn.execute("SELECT * FROM food_bills WHERE id = ?", (bill_id,)).fetchone()
-    bill_items = conn.execute(
-        "SELECT * FROM food_bill_items WHERE bill_id = ?", (bill_id,)
-    ).fetchall()
+    result = _bill_payload(conn, "food_bills", "food_bill_items", bill_id, "FOOD")
     conn.close()
-
-    result = dict(bill)
-    result["items"] = [dict(r) for r in bill_items]
-    result["type"] = "FOOD"
     return ok(result, 201)
 
 
@@ -1303,6 +1608,8 @@ def create_alcohol_bill():
     items = body.get("items")
     if not isinstance(items, list) or len(items) == 0:
         return error("Bill must contain at least one item")
+    if len(items) > MAX_BILL_LINES:
+        return error(f"A bill can hold at most {MAX_BILL_LINES} lines.")
 
     try:
         discount = to_float(body.get("discount", 0), "discount")
@@ -1346,16 +1653,23 @@ def create_alcohol_bill():
     table_id = body.get("table_id")
     table_session_id = body.get("table_session_id")
 
+    client_ref = request_client_ref()
     conn = get_db()
+
+    existing = _bill_by_client_ref(conn, "alcohol_bills", "alcohol_bill_items", "ALCOHOL", client_ref)
+    if existing:
+        conn.close()
+        return ok(existing, 200)
+
     try:
         bill_no = next_bill_number(conn, "alcohol_bill", "ALC")
         cur = conn.execute(
             """INSERT INTO alcohol_bills
                (bill_no, table_id, table_session_id, customer_name, customer_phone, subtotal, discount, tax, grand_total,
-                payment_method, created_by)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                payment_method, created_by, client_ref)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (bill_no, table_id, table_session_id, customer_name, customer_phone, subtotal, discount, tax_total, grand_total,
-             payment_method, session.get("user_id")),
+             payment_method, session.get("user_id"), client_ref),
         )
         bill_id = cur.lastrowid
         for name, brand, bottle_size, price, qty, tax_rate, line_total, item_id in clean_items:
@@ -1368,20 +1682,18 @@ def create_alcohol_bill():
             apply_stock_delta(conn, "alcohol", item_id, -qty)
         log_audit(conn, "bill.create", "alcohol_bill", bill_id, {"bill_no": bill_no, "grand_total": grand_total})
         conn.commit()
-    except Exception as e:
+    except Exception:
         conn.rollback()
+        duplicate = _bill_by_client_ref(conn, "alcohol_bills", "alcohol_bill_items", "ALCOHOL", client_ref)
+        if duplicate:
+            conn.close()
+            return ok(duplicate, 200)
         conn.close()
-        return error(f"Failed to save bill: {str(e)}", 500)
+        log.exception("Failed to save alcohol bill")
+        return error("Could not save this bill. Nothing was charged - please try again.", 500)
 
-    bill = conn.execute("SELECT * FROM alcohol_bills WHERE id = ?", (bill_id,)).fetchone()
-    bill_items = conn.execute(
-        "SELECT * FROM alcohol_bill_items WHERE bill_id = ?", (bill_id,)
-    ).fetchall()
+    result = _bill_payload(conn, "alcohol_bills", "alcohol_bill_items", bill_id, "ALCOHOL")
     conn.close()
-
-    result = dict(bill)
-    result["items"] = [dict(r) for r in bill_items]
-    result["type"] = "ALCOHOL"
     return ok(result, 201)
 
 
@@ -1649,11 +1961,33 @@ def list_audit_log():
 # REPORTS - CSV export (admin/manager)
 # =========================================================
 
+EXPORT_MAX_ROWS = int(os.environ.get("EXPORT_MAX_ROWS", "50000"))
+
+# An upper bound on how many lines one bill or table session may carry. Far
+# above anything a real table orders, but it stops a buggy or hostile client
+# from making the server build an arbitrarily large transaction.
+MAX_BILL_LINES = 300
+
+
+def _csv_cell(value):
+    """Neutralise spreadsheet formula injection.
+
+    Customer name and phone go into these exports straight from whatever was
+    typed at the till. Excel and Sheets treat a leading =, +, - or @ as a
+    formula, so a "customer" called `=HYPERLINK(...)` turns the owner's sales
+    report into a live attack the moment they open it. Prefixing with a single
+    quote keeps the text visible and inert.
+    """
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 def _csv_response(filename, header, rows):
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(header)
-    writer.writerows(rows)
+    writer.writerows([tuple(_csv_cell(c) for c in row) for row in rows])
     resp = Response(buf.getvalue(), mimetype="text/csv")
     resp.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     return resp
@@ -1684,13 +2018,28 @@ def export_report():
 
     conn = get_db()
     rows = []
+    # The whole report is built in memory. Unbounded, that is a worker-sized
+    # allocation that grows with every year the restaurant stays open - one
+    # click on "export all" eventually takes the server down. Cap it and tell
+    # the user to narrow the range instead.
+    limit = EXPORT_MAX_ROWS + 1
     if report_type in ("food", "all"):
-        for r in conn.execute(f"SELECT * FROM food_bills {where} ORDER BY id", tuple(params)).fetchall():
+        for r in conn.execute(
+            f"SELECT * FROM food_bills {where} ORDER BY id LIMIT ?", tuple(params) + (limit,)
+        ).fetchall():
             rows.append(("FOOD", r))
     if report_type in ("alcohol", "all"):
-        for r in conn.execute(f"SELECT * FROM alcohol_bills {where} ORDER BY id", tuple(params)).fetchall():
+        for r in conn.execute(
+            f"SELECT * FROM alcohol_bills {where} ORDER BY id LIMIT ?", tuple(params) + (limit,)
+        ).fetchall():
             rows.append(("ALCOHOL", r))
     conn.close()
+    if len(rows) > EXPORT_MAX_ROWS:
+        return error(
+            f"That range covers more than {EXPORT_MAX_ROWS} bills. "
+            "Please export a shorter date range.",
+            413,
+        )
     rows.sort(key=lambda pair: pair[1]["created_at"])
 
     header = ["Type", "Bill No", "Date", "Customer", "Phone", "Subtotal", "Discount", "Tax", "Grand Total", "Payment Method", "Status"]
@@ -1801,6 +2150,31 @@ def website_menu():
 QR_STATUSES = ["NEW", "ACCEPTED", "PREPARING", "READY", "SERVED", "CANCELLED"]
 RESTAURANT_NAME = os.environ.get("RESTAURANT_NAME", "Next Level Family Restaurant")
 MAX_QR_LINE_QTY = 50
+# POST /api/qr/orders is the only unauthenticated write in the whole system:
+# anyone who can read a table's QR code can call it, from anywhere. These two
+# limits keep a bored guest (or a script) from filling the orders board and the
+# database with junk faster than staff can cancel it.
+MAX_QR_LINES = 40
+QR_ORDER_RATE_LIMIT = int(os.environ.get("QR_ORDER_RATE_LIMIT", "12"))
+QR_ORDER_RATE_WINDOW = int(os.environ.get("QR_ORDER_RATE_WINDOW", "60"))
+_QR_ORDER_HITS = {}
+
+
+def _qr_rate_limited(token):
+    """Per-table sliding window. In-process, like the login throttle - it raises
+    the bar without pretending to be a real distributed rate limiter."""
+    now = time.time()
+    cutoff = now - QR_ORDER_RATE_WINDOW
+    hits = [t for t in _QR_ORDER_HITS.get(token, ()) if t > cutoff]
+    if len(_QR_ORDER_HITS) > 512:
+        for key in [k for k, v in _QR_ORDER_HITS.items() if not v or max(v) < cutoff]:
+            _QR_ORDER_HITS.pop(key, None)
+    if len(hits) >= QR_ORDER_RATE_LIMIT:
+        _QR_ORDER_HITS[token] = hits
+        return True
+    hits.append(now)
+    _QR_ORDER_HITS[token] = hits
+    return False
 
 
 def _menu_url_for(token):
@@ -1906,6 +2280,10 @@ def qr_place_order():
     raw_items = body.get("items")
     if not isinstance(raw_items, list) or not raw_items:
         return error("Your cart is empty.")
+    if len(raw_items) > MAX_QR_LINES:
+        return error(f"An order can have at most {MAX_QR_LINES} different items.")
+    if _qr_rate_limited(token):
+        return error("Too many orders from this table just now. Please wait a moment.", 429)
 
     conn = get_db()
     table = _qr_table_by_token(conn, token)
@@ -1986,10 +2364,11 @@ def qr_place_order():
                 (order_id, kind, iid, name, brand, bottle, price, qty, tax_rate, line_total),
             )
         conn.commit()
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         conn.rollback()
         conn.close()
-        return error(f"Could not place the order: {exc}", 500)
+        log.exception("Failed to place QR order for table %s", table["id"])
+        return error("Could not place the order. Please try again.", 500)
 
     row = conn.execute("SELECT * FROM qr_orders WHERE id = ?", (order_id,)).fetchone()
     payload = _qr_order_payload(conn, row)
@@ -2256,6 +2635,21 @@ def qr_admin_push_to_bill(order_id):
         return error("This order has no items")
 
     try:
+        # Claim the order first: this UPDATE is what makes a double-click safe.
+        # Checking `pushed_to_bill` in a separate SELECT (as this did before)
+        # let two concurrent presses both pass the check and add every item to
+        # the table's bill twice - the guest was charged twice for one order.
+        claimed = conn.execute(
+            """UPDATE qr_orders SET pushed_to_bill = 1, status = 'SERVED',
+                   updated_at = datetime('now','localtime')
+               WHERE id = ? AND pushed_to_bill = 0 AND status != 'CANCELLED'""",
+            (order_id,),
+        )
+        if claimed.rowcount != 1:
+            conn.rollback()
+            conn.close()
+            return error("This order is already on the table bill")
+
         table_session = conn.execute(
             "SELECT * FROM table_sessions WHERE table_id = ? AND status = 'open'",
             (order["table_id"],),
@@ -2284,17 +2678,21 @@ def qr_admin_push_to_bill(order_id):
             )
 
         conn.execute(
-            """UPDATE qr_orders
-               SET pushed_to_bill = 1, table_session_id = ?, status = 'SERVED',
-                   updated_at = datetime('now','localtime')
-               WHERE id = ?""",
+            "UPDATE qr_orders SET table_session_id = ? WHERE id = ?",
             (session_id, order_id),
         )
+        log_audit(conn, "qr.push_to_bill", "qr_order", order_id, {
+            "order_no": order["order_no"], "table_session_id": session_id,
+        })
         conn.commit()
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         conn.rollback()
         conn.close()
-        return error(f"Could not add the order to the bill: {exc}", 500)
+        log.exception("Failed to push QR order %s to a bill", order_id)
+        return error(
+            "Could not add this order to the table bill. Nothing was changed - please try again.",
+            500,
+        )
 
     updated = conn.execute("SELECT * FROM qr_orders WHERE id = ?", (order_id,)).fetchone()
     payload = _qr_order_payload(conn, updated)
@@ -2322,11 +2720,39 @@ def server_error(e):
     return error("Internal server error", 500)
 
 
+@app.errorhandler(Exception)
+def unhandled_exception(exc):
+    """Last line of defence: never let a bug reach the till as raw HTML.
+
+    The frontend's apiFetch parses every response as JSON and shows "Server
+    returned an invalid response" for anything else, which tells the cashier
+    nothing and tells us nothing either. Everything unexpected is logged here
+    with its traceback and request path, and answered with a plain, honest
+    message in the shape the frontend already understands.
+    """
+    if isinstance(exc, HTTPException):
+        # 404/405/413... keep their own handlers and status codes.
+        return error(exc.description or exc.name, exc.code or 500)
+    log.exception("Unhandled error on %s %s", request.method, request.path)
+    return error(
+        "Something went wrong on the server. The action may not have been saved - "
+        "please check before retrying.",
+        500,
+    )
+
+
 # =========================================================
 # Startup
 # =========================================================
 
 if __name__ == "__main__":
-    init_db()
+    ensure_initialized()
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    # debug=True hands anyone who can reach the port an interactive Python
+    # console on the first traceback. That is remote code execution, and it was
+    # unconditional here. It is now opt-in for local development only, and can
+    # never switch on in production regardless of what FLASK_DEBUG says.
+    # (The host stays 0.0.0.0 on purpose: testing the QR flow needs a phone on
+    # the same LAN to reach this machine.)
+    debug = (not IS_PRODUCTION) and os.environ.get("FLASK_DEBUG", "") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug)

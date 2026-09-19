@@ -5,14 +5,20 @@
  */
 import { onRequest } from "firebase-functions/v2/https";
 import { getAuth } from "firebase-admin/auth";
-import { REGION, RESTAURANT_TZ } from "../lib/config";
+import { REGION, RESTAURANT_TZ, EXPORT_MAX_ROWS } from "../lib/config";
 import { db as getDb } from "../lib/adminSdk";
 import { writeAudit } from "../lib/audit";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // Neutralise spreadsheet formula injection. Customer names come straight
+  // from the till exactly as typed; Excel and Sheets execute a cell that
+  // begins with =, +, - or @, so a "customer" named =HYPERLINK(...) turns the
+  // owner's own sales report into a live attack the moment they open it. A
+  // leading apostrophe keeps the text readable and inert.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
@@ -72,7 +78,18 @@ export const exportReport = onRequest({ region: REGION, cors: true }, async (req
   if (from) q = q.where("dateKey", ">=", from);
   if (to) q = q.where("dateKey", "<=", to);
   q = q.orderBy("dateKey");
-  const snap = await q.get();
+  // Bounded on purpose: the whole CSV is assembled in memory, so an unbounded
+  // "export everything" grows with every day the restaurant trades until it
+  // exhausts the function's memory. Reading one row past the limit is how we
+  // tell "exactly at the limit" from "too many".
+  const snap = await q.limit(EXPORT_MAX_ROWS + 1).get();
+  if (snap.size > EXPORT_MAX_ROWS) {
+    res.status(413).json({
+      success: false,
+      error: `That range covers more than ${EXPORT_MAX_ROWS} bills. Please export a shorter date range.`,
+    });
+    return;
+  }
 
   const rows = snap.docs
     .map((d) => d.data() as any)

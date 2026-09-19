@@ -233,7 +233,11 @@
     document.getElementById("confirmModal").classList.remove("show");
   });
 
+  // One key per sale, reused across retries - see billing.js for why.
+  let PENDING_BILL_KEY = null;
+
   async function finalizeAlcoholBill(doPrint) {
+    if (!PENDING_BILL_KEY) PENDING_BILL_KEY = newIdempotencyKey();
     const printBtn = document.getElementById("confirmPrintBtn");
     const onlyBtn = document.getElementById("confirmOnlyBtn");
     const labels = { [printBtn.id]: printBtn.textContent, [onlyBtn.id]: onlyBtn.textContent };
@@ -260,12 +264,13 @@
         TARGET_SESSION_ID = "";
         renderTableTargets();
       } else {
-        const bill = await apiFetch("/alcohol/bills", { method: "POST", body: payload });
+        const bill = await apiFetch("/alcohol/bills", { method: "POST", idempotencyKey: PENDING_BILL_KEY, body: payload });
         showToast(`Bill ${bill.bill_no} confirmed`);
         if (doPrint) printReceipt(bill);
       }
 
       // Only clear cart after a successful save
+      PENDING_BILL_KEY = null;   // this sale is banked; the next one is new
       CART = [];
       document.getElementById("customerName").value = "";
       document.getElementById("customerPhone").value = "";

@@ -5,3 +5,6 @@ gunicorn==22.0.0
 psycopg[binary]==3.2.13
 psycopg-pool==3.3.1
 qrcode==7.4.2
+# Guarantees the IANA timezone database is present even on a minimal
+# container image; the app pins every date calculation to Asia/Kolkata.
+tzdata==2024.1
