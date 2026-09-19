@@ -7,12 +7,25 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { getPool } from "../../lib/db";
 import { websiteImageUrl } from "../../lib/assetUrl";
+import menuCredits from "../../data/menu-credits.json";
+
+// Photo attribution (CC BY / CC BY-SA need visible credit). Generated with the
+// photo set, keyed by item name; only photos that need credit have an entry
+// (photos cropped from the restaurant's own menu card do not).
+const CREDITS = menuCredits as Record<string, { author: string; license: string; sourceUrl: string }>;
 
 function allowedKeys(): Set<string> {
   return new Set(String(process.env.WEBSITE_API_KEYS || "").split(",").map((k) => k.trim()).filter(Boolean));
 }
 function isoUtc(d: Date | null): string {
   return (d ?? new Date()).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+function creditFor(it: any): { imageCredit?: { author: string; license: string; sourceUrl: string } } {
+  // Only when we actually send a photo, and only for the stock photo we shipped (a photo set by hand later has no entry).
+  if (!websiteImageUrl(it.image_path) || !String(it.image_path).startsWith("/assets/menu/")) return {};
+  const c = CREDITS[it.name];
+  return c ? { imageCredit: c } : {};
 }
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -43,6 +56,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return {
         id: it.legacy_id ?? it.id, legacyId: it.legacy_id ?? null, name: it.name,
         description: it.description ?? null, imageUrl: websiteImageUrl(it.image_path),
+        ...creditFor(it),
         pricePaise: Math.round(Number(it.price) * 100), price: Number(it.price),
         available: it.stock_qty === null || it.stock_qty === undefined || Number(it.stock_qty) > 0,
       };

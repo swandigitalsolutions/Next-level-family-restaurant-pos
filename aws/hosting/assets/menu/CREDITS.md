@@ -71,7 +71,6 @@ CC BY and CC BY-SA require attribution; keep this file with the app and link it 
 | Onion Dosa | onion-dosa.webp | Manpreet Kaur from India | CC BY 2.0 | https://commons.wikimedia.org/wiki/File:Onion_Dosa_(22325953018).jpg |
 | Orange Juice | orange-juice.webp | Agricultural Research Service | Public domain | https://commons.wikimedia.org/wiki/File:Orange_juice_1.jpg |
 | Palak Paneer | palak-paneer.webp | DreamyFlutura11 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Palak_Paneer_(Cottage_cheese_in_spinach_gravy).jpg |
-| Paneer Butter Masala | paneer-butter-masala.webp | Gannu03 | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Paneer_Butter_Masala_2.jpg |
 | Paneer Chilli | paneer-chilli.webp | Marajozkee | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Chilly_Paneer_01.jpg |
 | Paneer Kaju Masala | paneer-kaju-masala.webp | Sidhabiswanath | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Cashew_paneer.jpg |
 | Paneer Roll | paneer-roll.webp | Shafana jasmine | CC BY-SA 4.0 | https://commons.wikimedia.org/wiki/File:Paneer_kathi_roll_homemade.jpg |

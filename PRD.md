@@ -313,7 +313,7 @@ ported" line, it is outdated):**
   couldn't tell it apart from a genuine rejection) — see
   `aws/backend/src/handlers/http/websiteApi.ts` and the exchange recorded
   in this project's session history.
-- **Menu replaced with the owner's printed menu card** (26 categories, 203
+- **Menu replaced with the owner's printed menu card** (26 categories, 202
   items, exact prices; source of truth `aws/db/data/menu-card.json`). Applied
   with `aws/db/scripts/seed-menu.mjs` (dry-run, single transaction,
   idempotent, retires old food items instead of deleting them, never touches
@@ -321,9 +321,8 @@ ported" line, it is outdated):**
   files in `aws/hosting/assets/menu/`): most are cropped from the card itself,
   the rest are Wikimedia Commons photos credited in
   `aws/hosting/assets/menu/CREDITS.md` (CC BY / BY-SA need a public credits
-  page on the Website). Two prices are ambiguous on the printed card and must
-  be confirmed by the owner: Paneer Butter Masala (English 200 / Kannada 220)
-  and Club Veg Sandwich (130 / 120); `_flags` in the JSON lists them.
+  page on the Website). Owner decisions applied: Paneer Butter Masala is not an
+  item (removed) and Club Veg Sandwich is Rs 120.
   The seed has been run only against a local test database, NOT production.
 - Fixed a production-breaking frontend bug: billing/alcohol/menu/orders pages
   wrapped string ids in `Number()` (NaN), breaking category tabs, table

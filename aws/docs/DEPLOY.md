@@ -89,6 +89,26 @@ psql "$(aws secretsmanager get-secret-value --secret-id <db-secret-arn> --query 
 psql ... -f aws/db/migrations/002_privileges.sql
 ```
 
+## 5b. Load the menu (the owner's printed menu card)
+
+Do this after step 5 (schema) and, if you migrate old data, after the ETL in
+step 8 (the seed retires the old food catalog, the ETL would bring it back).
+
+```bash
+export DATABASE_URL="postgresql://<user>:<pass>@<proxy-endpoint>:5432/posdb"
+cd aws/db && npm install
+node scripts/seed-menu.mjs --dry     # prints "26 categories, 202 items, 202 with images"
+node scripts/seed-menu.mjs           # applies, in ONE transaction (all or nothing)
+```
+
+It is idempotent (safe to re-run after editing `data/menu-card.json`), never
+deletes (old food items become `inactive`), and never touches alcohol/cafe.
+Photos: upload `aws/hosting/assets/menu/` with the hosting stack (step 4/6),
+then redeploy the API stack with the CloudFront domain so the Website gets
+absolute image URLs:
+`npx cdk deploy nlpos-<env>-api -c assetBaseUrl=https://dXXXX.cloudfront.net`.
+Verify: `GET /api/website/menu` returns 202 items, and every `imageUrl` opens.
+
 ## 6. Point the frontend at the real endpoints
 
 Fill in `aws/hosting/js/aws-config.js` with the `ApiEndpoint` (ApiStack

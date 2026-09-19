@@ -1,8 +1,7 @@
 {
   "_comment": "Transcribed from the owner's printed menu card (Menu Card cdr.pdf, 8 pages, English column). Single source of truth for the POS/Website food menu. Prices are whole rupees. Items printed with Full/Half prices are two separate items named '<Item> (Full)' / '<Item> (Half)'. See _flags for rows where the printed card disagrees with itself.",
   "_flags": [
-    "Paneer Butter Masala: English column prints 200, Kannada column prints 220. Using 200 (English). CONFIRM WITH OWNER.",
-    "Club Veg Sandwich: English column prints 130, Kannada column prints 120. Using 130 (English). CONFIRM WITH OWNER.",
+    "Owner decisions: Paneer Butter Masala is NOT an item (removed); Club Veg Sandwich = 120 (the Kannada price).",
     "Page 8 'Boneless Kabab / oil Fry / Chicken Special Kabab 300/150, 220/110' repeats items already on page 1 at the same prices, so it is not added twice.",
     "Page 8 'non veg 349' has no printed name; named 'Naati Style Non-Veg Meal'. CONFIRM NAME WITH OWNER.",
     "Page 2 heading 'ROLLS/NAAN' lists only breads; category is named 'Roti & Naan'.",
@@ -11,132 +10,947 @@
     "Page 8 combo names were reconstructed from the Kannada text next to a garbled English line."
   ],
   "categories": [
-    { "name": "Tandoor Non-Veg Starters", "items": [
-      ["Tandoori Chicken (Full)", 420], ["Tandoori Chicken (Half)", 220],
-      ["Chicken Oil Fry Kebab (Full)", 220], ["Chicken Oil Fry Kebab (Half)", 110],
-      ["Chicken Special Kebab (Full)", 300], ["Chicken Special Kebab (Half)", 150],
-      ["Hyderabadi Tandoori (Full)", 420], ["Hyderabadi Tandoori (Half)", 220],
-      ["Chatpata Chicken (Full)", 420], ["Chatpata Chicken (Half)", 220],
-      ["Roasted Chicken (Full)", 480], ["Roasted Chicken (Half)", 240],
-      ["Malai Chicken Tikka", 200], ["Chicken Tikka", 200], ["Achari Chicken Tikka", 200],
-      ["Hariyali Chicken Tikka", 200], ["Chicken Reshmi Tikka", 200],
-      ["Chicken Hariyali Kebab", 180], ["Chicken Pepper Kebab", 180]
-    ]},
-    { "name": "Indian Veg", "items": [
-      ["Paneer Butter Masala", 200], ["Kadai Paneer", 200], ["Palak Paneer", 180]
-    ]},
-    { "name": "Rolls", "items": [
-      ["Chicken Roll", 120], ["Egg Roll", 100], ["Paneer Roll", 100],
-      ["Mushroom Roll", 110], ["Veg Roll", 80], ["Veg Spring Roll", 100]
-    ]},
-    { "name": "Curry Items", "items": [
-      ["Paneer Hyderabadi", 200], ["Paneer Kaju Masala", 240], ["Mushroom Butter Masala", 180],
-      ["Mushroom Masala", 180], ["Mushroom Kadai", 180], ["Mushroom Kolhapuri", 180],
-      ["Mushroom Hyderabadi", 180], ["Veg Hyderabadi", 180], ["Kaju Masala", 240],
-      ["Baby Corn Masala", 170], ["Baby Corn Hyderabadi", 180], ["Dal Fry", 100],
-      ["Dal Tadka (Spicy)", 120], ["Palak Dal", 140], ["Paneer Tikka Masala", 270]
-    ]},
-    { "name": "Roti & Naan", "items": [
-      ["Tandoori Roti", 30], ["Butter Roti", 40], ["Lachha Paratha", 40], ["Plain Kulcha", 40],
-      ["Butter Kulcha", 40], ["Kerala Parotta", 40], ["Plain Naan", 40], ["Butter Naan", 50],
-      ["Garlic Naan", 45]
-    ]},
-    { "name": "Chicken Indian Gravy", "items": [
-      ["Butter Chicken", 230], ["Chicken Masala", 200], ["Chicken Kadai", 200],
-      ["Chicken Patiala", 220], ["Chicken Kalimirchi", 200], ["Chicken Kolhapuri", 220],
-      ["Chicken Methi Malai", 250], ["Chicken Curry", 250], ["Chicken Tikka Masala", 230],
-      ["Chicken Dopiaza", 200]
-    ]},
-    { "name": "Mutton Indian", "items": [
-      ["Mutton Rogan Josh", 269], ["Mutton Hyderabadi", 300], ["Mutton Pepper Fry", 300],
-      ["Mutton Curry", 300], ["Mutton Masala", 300], ["Mutton Kadai", 300],
-      ["Mutton Dopiaza", 300]
-    ]},
-    { "name": "Egg Specials", "items": [
-      ["Egg 65", 160], ["Egg Chilli", 160], ["Egg Manchurian", 160], ["Egg Pepper", 160],
-      ["Egg Masala", 120], ["Egg Curry", 120], ["Egg Keema Masala", 140]
-    ]},
-    { "name": "Veg Soups", "items": [
-      ["Veg Manchow Soup", 80], ["Veg Hot & Sour Soup", 80], ["Sweet Corn Veg Soup", 80],
-      ["Clear Vegetable Soup", 80], ["Tom Yum Veg Soup", 80]
-    ]},
-    { "name": "Non-Veg Soups", "items": [
-      ["Chicken Manchow Soup", 100], ["Chicken Hot & Sour Soup", 100],
-      ["Chicken Sweet Corn Soup", 100], ["Chicken Clear Soup", 100], ["Tom Yum Chicken Soup", 100]
-    ]},
-    { "name": "Veg Starters", "items": [
-      ["Gobi Manchurian", 120], ["Veg Ball Manchurian", 120], ["Paneer Chilli", 150],
-      ["Paneer 65", 150], ["Mushroom Chilli", 150], ["Mushroom Pepper Fry", 150],
-      ["Crispy Corn", 120], ["Honey Chilli Potato", 120]
-    ]},
-    { "name": "Non-Veg Starters", "items": [
-      ["Chicken 65", 180], ["Chilli Chicken", 180], ["Dragon Chicken", 180],
-      ["Chicken Lollipop", 180], ["Crispy Chicken", 180], ["Pepper Chicken", 180]
-    ]},
-    { "name": "Noodles", "items": [
-      ["Veg Hakka Noodles", 90], ["Chicken Hakka Noodles", 120], ["Veg Schezwan Noodles", 90],
-      ["Chicken Schezwan Noodles", 120], ["Veg Singapore Noodles", 90],
-      ["Chicken Singapore Noodles", 120]
-    ]},
-    { "name": "Fried Rice", "items": [
-      ["Veg Fried Rice", 90], ["Chicken Fried Rice", 120], ["Veg Schezwan Fried Rice", 90],
-      ["Chicken Schezwan Fried Rice", 120]
-    ]},
-    { "name": "Sandwich", "items": [
-      ["Veg Sandwich", 100], ["Cheese Sandwich", 120], ["Paneer Sandwich", 120],
-      ["Grilled Veg Sandwich", 130], ["Club Veg Sandwich", 130], ["Chicken Sandwich", 130],
-      ["Chicken Tikka Sandwich", 130], ["Chicken Mayo Sandwich", 130], ["Egg Sandwich", 110]
-    ]},
-    { "name": "Drinks", "items": [
-      ["Fresh Lime Juice", 49], ["Fresh Lime Soda", 56], ["Mango Juice", 70],
-      ["Watermelon Juice", 50], ["Orange Juice", 60], ["Lassi", 40], ["Buttermilk", 30],
-      ["Tea", 20], ["Coffee", 20], ["Arabic Coffee", 30], ["Soft Drinks", 30],
-      ["Mineral Water", 20], ["Tandoori Chai", 30]
-    ]},
-    { "name": "Desserts", "items": [
-      ["Gulab Jamun", 60], ["Rasmalai", 60], ["Double Ka Meetha", 60], ["Qubani Ka Meetha", 60],
-      ["Gajar Halwa", 60], ["Falooda", 60], ["Kulfi", 60], ["Ice Cream", 60]
-    ]},
-    { "name": "Snacks", "items": [
-      ["Samosa Masala", 50], ["Samosa Chaat", 70], ["Pav Bhaji", 100], ["Cheese Pav Bhaji", 140]
-    ]},
-    { "name": "Indian Chaats", "items": [
-      ["Pani Puri", 40], ["Masala Puri", 50], ["Sev Puri", 60], ["Bhel Puri", 60],
-      ["Dahi Puri", 70], ["Papdi Chaat", 80], ["Dahi Papdi Chaat", 90], ["Plain Samosa", 30]
-    ]},
-    { "name": "Biryani", "items": [
-      ["Hyderabadi Chicken Dum Biryani", 160], ["Hyderabadi Mutton Dum Biryani", 300],
-      ["Chicken 65 Biryani", 180], ["Boneless Chicken Biryani", 200], ["Fish Biryani", 185],
-      ["Chicken Majboos Arabic", 200]
-    ]},
-    { "name": "Seafood", "items": [
-      ["Tandoori Fish", 170], ["Fish Tikka", 180], ["Grilled Prawns", 300], ["Fish Masala", 130],
-      ["Fish Curry", 130], ["Fish Tawa Fry", 120], ["Prawn Masala", 230], ["Prawn Curry", 230]
-    ]},
-    { "name": "South Indian", "items": [
-      ["Idli", 50], ["Vada", 30], ["Plain Dosa", 50], ["Masala Dosa", 70], ["Onion Dosa", 70],
-      ["Rava Dosa", 70], ["Set Dosa", 70], ["Uttapam", 70], ["Pongal", 60], ["Upma", 30],
-      ["Poori Bhaji", 70], ["Lemon Rice", 60], ["Tamarind Rice", 60], ["Curd Rice", 50]
-    ]},
-    { "name": "Arabic Salad", "items": [
-      ["Fattoush", 40], ["Tabbouleh", 40], ["Green Salad", 40], ["Onion Salad", 40],
-      ["Cucumber Salad", 40]
-    ]},
-    { "name": "Rice & Pulao", "items": [
-      ["Steamed Rice", 60], ["Jeera Rice", 90], ["Ghee Rice", 100], ["Veg Pulao", 110],
-      ["Peas Pulao", 110], ["Kashmiri Pulao", 100]
-    ]},
-    { "name": "Naati Style Home Food", "items": [
-      ["Chitranna Egg Rice Combo", 159, "Chitranna egg rice, mallige idli, kaal soup and boiled egg"],
-      ["Naati Style Home Food Veg", 259, "Akki rotti, raagi rotti, kusuvalakki rice, kaayi chatni, nugge soppu, dal palya, huchhellu chatni, idukidabele sambhar"],
-      ["Naati Style Home Food Non-Veg", 199, "Raagi ball, kusuvalakki rice, sambhar, palya, raagi rotti, tomato chatni"],
-      ["Naati Style Non-Veg Meal", 349, null]
-    ]},
-    { "name": "Arabian Dishes", "items": [
-      ["Grill Chicken (Full)", 420], ["Grill Chicken (Half)", 220],
-      ["Irani Chicken (Full)", 420], ["Irani Chicken (Half)", 220],
-      ["Al Faham Chicken (Full)", 420], ["Al Faham Chicken (Half)", 220],
-      ["BBQ Chicken (Full)", 460], ["BBQ Chicken (Half)", 230]
-    ]}
+    {
+      "name": "Tandoor Non-Veg Starters",
+      "items": [
+        [
+          "Tandoori Chicken (Full)",
+          420
+        ],
+        [
+          "Tandoori Chicken (Half)",
+          220
+        ],
+        [
+          "Chicken Oil Fry Kebab (Full)",
+          220
+        ],
+        [
+          "Chicken Oil Fry Kebab (Half)",
+          110
+        ],
+        [
+          "Chicken Special Kebab (Full)",
+          300
+        ],
+        [
+          "Chicken Special Kebab (Half)",
+          150
+        ],
+        [
+          "Hyderabadi Tandoori (Full)",
+          420
+        ],
+        [
+          "Hyderabadi Tandoori (Half)",
+          220
+        ],
+        [
+          "Chatpata Chicken (Full)",
+          420
+        ],
+        [
+          "Chatpata Chicken (Half)",
+          220
+        ],
+        [
+          "Roasted Chicken (Full)",
+          480
+        ],
+        [
+          "Roasted Chicken (Half)",
+          240
+        ],
+        [
+          "Malai Chicken Tikka",
+          200
+        ],
+        [
+          "Chicken Tikka",
+          200
+        ],
+        [
+          "Achari Chicken Tikka",
+          200
+        ],
+        [
+          "Hariyali Chicken Tikka",
+          200
+        ],
+        [
+          "Chicken Reshmi Tikka",
+          200
+        ],
+        [
+          "Chicken Hariyali Kebab",
+          180
+        ],
+        [
+          "Chicken Pepper Kebab",
+          180
+        ]
+      ]
+    },
+    {
+      "name": "Indian Veg",
+      "items": [
+        [
+          "Kadai Paneer",
+          200
+        ],
+        [
+          "Palak Paneer",
+          180
+        ]
+      ]
+    },
+    {
+      "name": "Rolls",
+      "items": [
+        [
+          "Chicken Roll",
+          120
+        ],
+        [
+          "Egg Roll",
+          100
+        ],
+        [
+          "Paneer Roll",
+          100
+        ],
+        [
+          "Mushroom Roll",
+          110
+        ],
+        [
+          "Veg Roll",
+          80
+        ],
+        [
+          "Veg Spring Roll",
+          100
+        ]
+      ]
+    },
+    {
+      "name": "Curry Items",
+      "items": [
+        [
+          "Paneer Hyderabadi",
+          200
+        ],
+        [
+          "Paneer Kaju Masala",
+          240
+        ],
+        [
+          "Mushroom Butter Masala",
+          180
+        ],
+        [
+          "Mushroom Masala",
+          180
+        ],
+        [
+          "Mushroom Kadai",
+          180
+        ],
+        [
+          "Mushroom Kolhapuri",
+          180
+        ],
+        [
+          "Mushroom Hyderabadi",
+          180
+        ],
+        [
+          "Veg Hyderabadi",
+          180
+        ],
+        [
+          "Kaju Masala",
+          240
+        ],
+        [
+          "Baby Corn Masala",
+          170
+        ],
+        [
+          "Baby Corn Hyderabadi",
+          180
+        ],
+        [
+          "Dal Fry",
+          100
+        ],
+        [
+          "Dal Tadka (Spicy)",
+          120
+        ],
+        [
+          "Palak Dal",
+          140
+        ],
+        [
+          "Paneer Tikka Masala",
+          270
+        ]
+      ]
+    },
+    {
+      "name": "Roti & Naan",
+      "items": [
+        [
+          "Tandoori Roti",
+          30
+        ],
+        [
+          "Butter Roti",
+          40
+        ],
+        [
+          "Lachha Paratha",
+          40
+        ],
+        [
+          "Plain Kulcha",
+          40
+        ],
+        [
+          "Butter Kulcha",
+          40
+        ],
+        [
+          "Kerala Parotta",
+          40
+        ],
+        [
+          "Plain Naan",
+          40
+        ],
+        [
+          "Butter Naan",
+          50
+        ],
+        [
+          "Garlic Naan",
+          45
+        ]
+      ]
+    },
+    {
+      "name": "Chicken Indian Gravy",
+      "items": [
+        [
+          "Butter Chicken",
+          230
+        ],
+        [
+          "Chicken Masala",
+          200
+        ],
+        [
+          "Chicken Kadai",
+          200
+        ],
+        [
+          "Chicken Patiala",
+          220
+        ],
+        [
+          "Chicken Kalimirchi",
+          200
+        ],
+        [
+          "Chicken Kolhapuri",
+          220
+        ],
+        [
+          "Chicken Methi Malai",
+          250
+        ],
+        [
+          "Chicken Curry",
+          250
+        ],
+        [
+          "Chicken Tikka Masala",
+          230
+        ],
+        [
+          "Chicken Dopiaza",
+          200
+        ]
+      ]
+    },
+    {
+      "name": "Mutton Indian",
+      "items": [
+        [
+          "Mutton Rogan Josh",
+          269
+        ],
+        [
+          "Mutton Hyderabadi",
+          300
+        ],
+        [
+          "Mutton Pepper Fry",
+          300
+        ],
+        [
+          "Mutton Curry",
+          300
+        ],
+        [
+          "Mutton Masala",
+          300
+        ],
+        [
+          "Mutton Kadai",
+          300
+        ],
+        [
+          "Mutton Dopiaza",
+          300
+        ]
+      ]
+    },
+    {
+      "name": "Egg Specials",
+      "items": [
+        [
+          "Egg 65",
+          160
+        ],
+        [
+          "Egg Chilli",
+          160
+        ],
+        [
+          "Egg Manchurian",
+          160
+        ],
+        [
+          "Egg Pepper",
+          160
+        ],
+        [
+          "Egg Masala",
+          120
+        ],
+        [
+          "Egg Curry",
+          120
+        ],
+        [
+          "Egg Keema Masala",
+          140
+        ]
+      ]
+    },
+    {
+      "name": "Veg Soups",
+      "items": [
+        [
+          "Veg Manchow Soup",
+          80
+        ],
+        [
+          "Veg Hot & Sour Soup",
+          80
+        ],
+        [
+          "Sweet Corn Veg Soup",
+          80
+        ],
+        [
+          "Clear Vegetable Soup",
+          80
+        ],
+        [
+          "Tom Yum Veg Soup",
+          80
+        ]
+      ]
+    },
+    {
+      "name": "Non-Veg Soups",
+      "items": [
+        [
+          "Chicken Manchow Soup",
+          100
+        ],
+        [
+          "Chicken Hot & Sour Soup",
+          100
+        ],
+        [
+          "Chicken Sweet Corn Soup",
+          100
+        ],
+        [
+          "Chicken Clear Soup",
+          100
+        ],
+        [
+          "Tom Yum Chicken Soup",
+          100
+        ]
+      ]
+    },
+    {
+      "name": "Veg Starters",
+      "items": [
+        [
+          "Gobi Manchurian",
+          120
+        ],
+        [
+          "Veg Ball Manchurian",
+          120
+        ],
+        [
+          "Paneer Chilli",
+          150
+        ],
+        [
+          "Paneer 65",
+          150
+        ],
+        [
+          "Mushroom Chilli",
+          150
+        ],
+        [
+          "Mushroom Pepper Fry",
+          150
+        ],
+        [
+          "Crispy Corn",
+          120
+        ],
+        [
+          "Honey Chilli Potato",
+          120
+        ]
+      ]
+    },
+    {
+      "name": "Non-Veg Starters",
+      "items": [
+        [
+          "Chicken 65",
+          180
+        ],
+        [
+          "Chilli Chicken",
+          180
+        ],
+        [
+          "Dragon Chicken",
+          180
+        ],
+        [
+          "Chicken Lollipop",
+          180
+        ],
+        [
+          "Crispy Chicken",
+          180
+        ],
+        [
+          "Pepper Chicken",
+          180
+        ]
+      ]
+    },
+    {
+      "name": "Noodles",
+      "items": [
+        [
+          "Veg Hakka Noodles",
+          90
+        ],
+        [
+          "Chicken Hakka Noodles",
+          120
+        ],
+        [
+          "Veg Schezwan Noodles",
+          90
+        ],
+        [
+          "Chicken Schezwan Noodles",
+          120
+        ],
+        [
+          "Veg Singapore Noodles",
+          90
+        ],
+        [
+          "Chicken Singapore Noodles",
+          120
+        ]
+      ]
+    },
+    {
+      "name": "Fried Rice",
+      "items": [
+        [
+          "Veg Fried Rice",
+          90
+        ],
+        [
+          "Chicken Fried Rice",
+          120
+        ],
+        [
+          "Veg Schezwan Fried Rice",
+          90
+        ],
+        [
+          "Chicken Schezwan Fried Rice",
+          120
+        ]
+      ]
+    },
+    {
+      "name": "Sandwich",
+      "items": [
+        [
+          "Veg Sandwich",
+          100
+        ],
+        [
+          "Cheese Sandwich",
+          120
+        ],
+        [
+          "Paneer Sandwich",
+          120
+        ],
+        [
+          "Grilled Veg Sandwich",
+          130
+        ],
+        [
+          "Club Veg Sandwich",
+          120
+        ],
+        [
+          "Chicken Sandwich",
+          130
+        ],
+        [
+          "Chicken Tikka Sandwich",
+          130
+        ],
+        [
+          "Chicken Mayo Sandwich",
+          130
+        ],
+        [
+          "Egg Sandwich",
+          110
+        ]
+      ]
+    },
+    {
+      "name": "Drinks",
+      "items": [
+        [
+          "Fresh Lime Juice",
+          49
+        ],
+        [
+          "Fresh Lime Soda",
+          56
+        ],
+        [
+          "Mango Juice",
+          70
+        ],
+        [
+          "Watermelon Juice",
+          50
+        ],
+        [
+          "Orange Juice",
+          60
+        ],
+        [
+          "Lassi",
+          40
+        ],
+        [
+          "Buttermilk",
+          30
+        ],
+        [
+          "Tea",
+          20
+        ],
+        [
+          "Coffee",
+          20
+        ],
+        [
+          "Arabic Coffee",
+          30
+        ],
+        [
+          "Soft Drinks",
+          30
+        ],
+        [
+          "Mineral Water",
+          20
+        ],
+        [
+          "Tandoori Chai",
+          30
+        ]
+      ]
+    },
+    {
+      "name": "Desserts",
+      "items": [
+        [
+          "Gulab Jamun",
+          60
+        ],
+        [
+          "Rasmalai",
+          60
+        ],
+        [
+          "Double Ka Meetha",
+          60
+        ],
+        [
+          "Qubani Ka Meetha",
+          60
+        ],
+        [
+          "Gajar Halwa",
+          60
+        ],
+        [
+          "Falooda",
+          60
+        ],
+        [
+          "Kulfi",
+          60
+        ],
+        [
+          "Ice Cream",
+          60
+        ]
+      ]
+    },
+    {
+      "name": "Snacks",
+      "items": [
+        [
+          "Samosa Masala",
+          50
+        ],
+        [
+          "Samosa Chaat",
+          70
+        ],
+        [
+          "Pav Bhaji",
+          100
+        ],
+        [
+          "Cheese Pav Bhaji",
+          140
+        ]
+      ]
+    },
+    {
+      "name": "Indian Chaats",
+      "items": [
+        [
+          "Pani Puri",
+          40
+        ],
+        [
+          "Masala Puri",
+          50
+        ],
+        [
+          "Sev Puri",
+          60
+        ],
+        [
+          "Bhel Puri",
+          60
+        ],
+        [
+          "Dahi Puri",
+          70
+        ],
+        [
+          "Papdi Chaat",
+          80
+        ],
+        [
+          "Dahi Papdi Chaat",
+          90
+        ],
+        [
+          "Plain Samosa",
+          30
+        ]
+      ]
+    },
+    {
+      "name": "Biryani",
+      "items": [
+        [
+          "Hyderabadi Chicken Dum Biryani",
+          160
+        ],
+        [
+          "Hyderabadi Mutton Dum Biryani",
+          300
+        ],
+        [
+          "Chicken 65 Biryani",
+          180
+        ],
+        [
+          "Boneless Chicken Biryani",
+          200
+        ],
+        [
+          "Fish Biryani",
+          185
+        ],
+        [
+          "Chicken Majboos Arabic",
+          200
+        ]
+      ]
+    },
+    {
+      "name": "Seafood",
+      "items": [
+        [
+          "Tandoori Fish",
+          170
+        ],
+        [
+          "Fish Tikka",
+          180
+        ],
+        [
+          "Grilled Prawns",
+          300
+        ],
+        [
+          "Fish Masala",
+          130
+        ],
+        [
+          "Fish Curry",
+          130
+        ],
+        [
+          "Fish Tawa Fry",
+          120
+        ],
+        [
+          "Prawn Masala",
+          230
+        ],
+        [
+          "Prawn Curry",
+          230
+        ]
+      ]
+    },
+    {
+      "name": "South Indian",
+      "items": [
+        [
+          "Idli",
+          50
+        ],
+        [
+          "Vada",
+          30
+        ],
+        [
+          "Plain Dosa",
+          50
+        ],
+        [
+          "Masala Dosa",
+          70
+        ],
+        [
+          "Onion Dosa",
+          70
+        ],
+        [
+          "Rava Dosa",
+          70
+        ],
+        [
+          "Set Dosa",
+          70
+        ],
+        [
+          "Uttapam",
+          70
+        ],
+        [
+          "Pongal",
+          60
+        ],
+        [
+          "Upma",
+          30
+        ],
+        [
+          "Poori Bhaji",
+          70
+        ],
+        [
+          "Lemon Rice",
+          60
+        ],
+        [
+          "Tamarind Rice",
+          60
+        ],
+        [
+          "Curd Rice",
+          50
+        ]
+      ]
+    },
+    {
+      "name": "Arabic Salad",
+      "items": [
+        [
+          "Fattoush",
+          40
+        ],
+        [
+          "Tabbouleh",
+          40
+        ],
+        [
+          "Green Salad",
+          40
+        ],
+        [
+          "Onion Salad",
+          40
+        ],
+        [
+          "Cucumber Salad",
+          40
+        ]
+      ]
+    },
+    {
+      "name": "Rice & Pulao",
+      "items": [
+        [
+          "Steamed Rice",
+          60
+        ],
+        [
+          "Jeera Rice",
+          90
+        ],
+        [
+          "Ghee Rice",
+          100
+        ],
+        [
+          "Veg Pulao",
+          110
+        ],
+        [
+          "Peas Pulao",
+          110
+        ],
+        [
+          "Kashmiri Pulao",
+          100
+        ]
+      ]
+    },
+    {
+      "name": "Naati Style Home Food",
+      "items": [
+        [
+          "Chitranna Egg Rice Combo",
+          159,
+          "Chitranna egg rice, mallige idli, kaal soup and boiled egg"
+        ],
+        [
+          "Naati Style Home Food Veg",
+          259,
+          "Akki rotti, raagi rotti, kusuvalakki rice, kaayi chatni, nugge soppu, dal palya, huchhellu chatni, idukidabele sambhar"
+        ],
+        [
+          "Naati Style Home Food Non-Veg",
+          199,
+          "Raagi ball, kusuvalakki rice, sambhar, palya, raagi rotti, tomato chatni"
+        ],
+        [
+          "Naati Style Non-Veg Meal",
+          349,
+          null
+        ]
+      ]
+    },
+    {
+      "name": "Arabian Dishes",
+      "items": [
+        [
+          "Grill Chicken (Full)",
+          420
+        ],
+        [
+          "Grill Chicken (Half)",
+          220
+        ],
+        [
+          "Irani Chicken (Full)",
+          420
+        ],
+        [
+          "Irani Chicken (Half)",
+          220
+        ],
+        [
+          "Al Faham Chicken (Full)",
+          420
+        ],
+        [
+          "Al Faham Chicken (Half)",
+          220
+        ],
+        [
+          "BBQ Chicken (Full)",
+          460
+        ],
+        [
+          "BBQ Chicken (Half)",
+          230
+        ]
+      ]
+    }
   ]
 }

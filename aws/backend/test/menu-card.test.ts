@@ -42,10 +42,10 @@ async function seedOldWorld() {
   return { pool, oldItem, beer, chai };
 }
 
-test("card file is internally valid: 26 categories, 203 items, unique names, positive integer prices", () => {
+test("card file is internally valid: 26 categories, 202 items, unique names, positive integer prices", () => {
   assert.equal(CARD.categories.length, 26);
-  assert.equal(CARD_ITEMS.length, 203);
-  assert.equal(new Set(CARD_ITEMS.map((i) => i.name.toLowerCase())).size, 203);
+  assert.equal(CARD_ITEMS.length, 202);
+  assert.equal(new Set(CARD_ITEMS.map((i) => i.name.toLowerCase())).size, 202);
   for (const i of CARD_ITEMS) assert.ok(Number.isInteger(i.price) && i.price > 0, i.name);
 });
 
@@ -87,7 +87,7 @@ test("seed with the photo manifest stores the image path on the right items", as
 test("--dry writes nothing", async () => {
   const { pool } = await seedOldWorld();
   const out = runSeed("--dry");
-  assert.match(out, /203 items/);
+  assert.match(out, /202 items/);
   const n = await pool.query("SELECT count(*)::int AS n FROM catalog WHERE id LIKE 'item_food_card%'");
   assert.equal(n.rows[0].n, 0);
 });
@@ -97,7 +97,7 @@ test("seed replaces the food menu with exactly the card, at exact prices; alcoho
   runSeed();
 
   const active = await pool.query("SELECT name, price, category_name, tax_rate, stock_qty FROM catalog WHERE kind='food' AND status='active'");
-  assert.equal(active.rowCount, 203);
+  assert.equal(active.rowCount, 202);
   const byName = new Map(active.rows.map((r) => [r.name, r]));
   for (const c of CARD_ITEMS) {
     const row = byName.get(c.name);
@@ -124,7 +124,7 @@ test("seed is idempotent, preserves stock/image on re-run, and retires items rem
   await pool.query("UPDATE catalog SET stock_qty=7, image_path='/assets/menu/x.webp' WHERE id='item_food_card_tandoori-chicken-full'");
   runSeed();
   const n = await pool.query("SELECT count(*)::int AS n FROM catalog WHERE kind='food' AND status='active'");
-  assert.equal(n.rows[0].n, 203, "re-run must not duplicate");
+  assert.equal(n.rows[0].n, 202, "re-run must not duplicate");
   const row = await pool.query("SELECT stock_qty, image_path FROM catalog WHERE id='item_food_card_tandoori-chicken-full'");
   assert.equal(row.rows[0].stock_qty, 7);
   assert.equal(row.rows[0].image_path, "/assets/menu/x.webp");
@@ -148,7 +148,7 @@ test("Website menu API returns exactly the card: same items, same paise prices, 
   const menu = JSON.parse(res.body);
   assert.deepEqual(menu.categories.map((c: any) => c.name), CARD.categories.map((c: any) => c.name));
   const served = menu.categories.flatMap((c: any) => c.items.map((i: any) => ({ name: i.name, pricePaise: i.pricePaise, available: i.available, imageUrl: i.imageUrl })));
-  assert.equal(served.length, 203, "no extra (old/alcohol/cafe) items may appear");
+  assert.equal(served.length, 202, "no extra (old/alcohol/cafe) items may appear");
   const byName = new Map(served.map((s: any) => [s.name, s]));
   for (const c of CARD_ITEMS) {
     const s: any = byName.get(c.name);
@@ -185,6 +185,29 @@ test("Website menu serves absolute image URLs once PUBLIC_ASSET_BASE_URL is set"
   } finally { delete process.env.PUBLIC_ASSET_BASE_URL; }
 });
 
+test("Website menu carries imageCredit exactly for photos that need attribution", async () => {
+  await seedOldWorld();
+  runSeed("--force-images");
+  process.env.PUBLIC_ASSET_BASE_URL = "https://d111.cloudfront.net";
+  try {
+    const menu = JSON.parse(((await websiteMenuHandler(menuEvent())) as any).body);
+    const items = menu.categories.flatMap((c: any) => c.items);
+    const credited = items.filter((i: any) => i.imageCredit);
+    assert.ok(credited.length > 80, "stock Wikimedia photos must carry a credit");
+    for (const i of credited) {
+      assert.ok(i.imageUrl, `credit without a photo: ${i.name}`);
+      assert.ok(i.imageCredit.author && i.imageCredit.license && /^https:\/\//.test(i.imageCredit.sourceUrl), `incomplete credit: ${i.name}`);
+      assert.match(i.imageCredit.license, /^(CC0|Public domain|CC BY)/);
+    }
+    // an item with no photo never carries a credit
+    const pool = await getPool();
+    await pool.query("UPDATE catalog SET image_path=NULL WHERE id='item_food_card_tea'");
+    const again = JSON.parse(((await websiteMenuHandler(menuEvent())) as any).body).categories.flatMap((c: any) => c.items);
+    const tea = again.find((i: any) => i.name === "Tea");
+    assert.equal(tea.imageUrl, null); assert.equal(tea.imageCredit, undefined);
+  } finally { delete process.env.PUBLIC_ASSET_BASE_URL; }
+});
+
 test("Website menu rejects a missing/wrong API key with 401", async () => {
   assert.equal(((await websiteMenuHandler(menuEvent(""))) as any).statusCode, 401);
   assert.equal(((await websiteMenuHandler(menuEvent("nope"))) as any).statusCode, 401);
@@ -200,7 +223,7 @@ test("QR menu for a table lists exactly the card food items, with image_url", as
   const body = JSON.parse(res.body);
   assert.equal(body.success, true);
   const food = body.data.categories.flatMap((c: any) => c.items).filter((i: any) => i.kind === "food");
-  assert.equal(food.length, 203);
+  assert.equal(food.length, 202);
   assert.ok(food.every((i: any) => "image_url" in i));
 });
 
