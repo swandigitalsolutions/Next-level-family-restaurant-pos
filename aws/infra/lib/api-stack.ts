@@ -186,7 +186,19 @@ export class ApiStack extends cdk.Stack {
       integration: new integ.HttpLambdaIntegration("QrApiInteg", qrApi),
     });
 
-    const websiteMenu = mkFn("websiteMenu", "http/websiteMenu.ts", { WEBSITE_API_KEYS: websiteApiKeySecret.secretValue.unsafeUnwrap() });
+    // Absolute https base the Website can load menu photos from (the hosting
+    // stack's CloudFront domain, only known AFTER hosting is deployed):
+    //   cdk deploy nlpos-<env>-api -c assetBaseUrl=https://dXXXX.cloudfront.net
+    // Unset => the menu API sends imageUrl:null (Website shows a clean
+    // placeholder) instead of a relative path it could never resolve.
+    const assetBaseUrl = String(this.node.tryGetContext("assetBaseUrl") ?? "");
+    if (assetBaseUrl && !/^https:\/\//i.test(assetBaseUrl)) {
+      throw new Error("assetBaseUrl context must start with https:// (got: " + assetBaseUrl + ")");
+    }
+    const websiteMenu = mkFn("websiteMenu", "http/websiteMenu.ts", {
+      WEBSITE_API_KEYS: websiteApiKeySecret.secretValue.unsafeUnwrap(),
+      ...(assetBaseUrl ? { PUBLIC_ASSET_BASE_URL: assetBaseUrl } : {}),
+    });
     websiteApiKeySecret.grantRead(websiteMenu);
     this.httpApi.addRoutes({
       path: "/api/website/menu",

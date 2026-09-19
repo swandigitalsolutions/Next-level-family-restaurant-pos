@@ -15,6 +15,7 @@ import { assertRole, HttpError } from "../../lib/authz";
 import { OPS_ROLES, BILLING_ROLES, CAFE_ROLES, KITCHEN_ROLES, AUDIT_ROLES, RESTAURANT_TZ } from "../../lib/config";
 import { dateKey, round2 } from "../../lib/money";
 import { getPool } from "../../lib/db";
+import { posImageUrl } from "../../lib/assetUrl";
 
 const channelOf = (kind: string, salesChannel: string) => salesChannel || (kind === "cafe" ? "OUTSIDE_CAFE" : "RESTAURANT");
 const catRow = (r: any) => ({ id: r.id, name: r.name, status: r.status, sort_order: r.sort_order, kind: r.kind, sales_channel: channelOf(r.kind, r.sales_channel) });
@@ -22,6 +23,7 @@ const itemRow = (r: any) => ({
   id: r.id, name: r.name, category_id: r.category_id, category_name: r.category_name, price: Number(r.price),
   stock_qty: r.stock_qty === null ? null : Number(r.stock_qty), description: r.description ?? null, brand: r.brand ?? null,
   bottle_size: r.bottle_size ?? null, tax_rate: Number(r.tax_rate) || 0, status: r.status, kind: r.kind, sales_channel: channelOf(r.kind, r.sales_channel),
+  image_url: posImageUrl(r.image_path),
 });
 const billRow = (r: any) => ({
   id: r.id, bill_no: r.bill_no, type: r.type, source: r.source ?? null, table_id: r.table_id ?? null, table_session_id: r.table_session_id ?? null,
@@ -67,7 +69,7 @@ export const handler = dispatch({
     assertRole(event as any, OPS_ROLES as any);
     const pool = await getPool();
     const kind = body?.kind === "alcohol" ? "alcohol" : body?.kind === "cafe" ? "cafe" : "food";
-    const res = await pool.query("SELECT * FROM categories WHERE kind=$1 ORDER BY sort_order, name LIMIT 500", [kind]);
+    const res = await pool.query("SELECT * FROM categories WHERE kind=$1 AND status='active' ORDER BY sort_order, name LIMIT 500", [kind]);
     return res.rows.map(catRow);
   },
 

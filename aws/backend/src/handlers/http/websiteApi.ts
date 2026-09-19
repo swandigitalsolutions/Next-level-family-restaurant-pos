@@ -69,9 +69,15 @@ async function loadOrderByRef(ref: string) {
 }
 
 async function handlePost(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> {
-  const body = event.body ? JSON.parse(event.body) : {};
-  const customer = body.customer || {};
-  const fulfillment = body.fulfillment || {};
+  let body: any;
+  try {
+    body = event.body ? JSON.parse(event.isBase64Encoded ? Buffer.from(event.body, "base64").toString("utf8") : event.body) : {};
+  } catch {
+    return err("request body must be valid JSON", 400, "invalid-argument");
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return err("request body must be a JSON object", 400, "invalid-argument");
+  const customer = body.customer && typeof body.customer === "object" ? body.customer : {};
+  const fulfillment = body.fulfillment && typeof body.fulfillment === "object" ? body.fulfillment : {};
   if ((fulfillment.type || "pickup") !== "pickup") return err("only pickup pre-orders are supported", 422);
   const pickupAt = fulfillment.pickupAt ? new Date(fulfillment.pickupAt) : null;
   if (pickupAt && isNaN(pickupAt.getTime())) return err("fulfillment.pickupAt must be an ISO datetime", 422);
@@ -87,7 +93,7 @@ async function handlePost(event: APIGatewayProxyEventV2): Promise<APIGatewayProx
   let pendingOrder: any = null;
   if (idemKey) {
     const claim = await withTransaction((c) => claimIdempotencyKey(c, idemKey!, hash));
-    if (claim.outcome === "conflict") return err("Idempotency-Key already used with a different request", 422);
+    if (claim.outcome === "conflict") return err("Idempotency-Key already used with a different request", 422, "idempotency-conflict");
     if (claim.outcome === "duplicate") {
       const row = await loadOrderById(claim.orderId);
       if (row) return ok(websiteOrderWire(row), 201);
@@ -185,13 +191,13 @@ export const handler = withErrors(async (event: any): Promise<APIGatewayProxyRes
     if (method === "POST" && parts[0] === "orders" && !parts[1]) return await handlePost(event);
     if (method === "GET" && parts[0] === "orders" && parts[1]) {
       const row = await loadOrderByRef(parts[1]);
-      if (!row) return err("order not found", 404);
+      if (!row) return err("order not found", 404, "not-found");
       return ok(websiteOrderWire(row));
     }
-    return err("not found", 404);
+    return err("not found", 404, "not-found");
   } catch (e) {
-    if (e instanceof ValidationError) return err(e.message, 422);
+    if (e instanceof ValidationError) return err(e.message, 422, "invalid-argument");
     console.error("websiteApi error", e);
-    return err("internal error", 500);
+    return err("Something went wrong. Please try again.", 500, "internal");
   }
 });

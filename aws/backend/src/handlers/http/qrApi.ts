@@ -9,11 +9,12 @@
  */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { randomUUID } from "crypto";
-import { RESTAURANT_NAME, RESTAURANT_TZ, QR_STATUSES, MAX_QR_LINE_QTY } from "../../lib/config";
+import { RESTAURANT_NAME, RESTAURANT_TZ, QR_STATUSES, MAX_QR_LINE_QTY, MAX_QR_LINES } from "../../lib/config";
 import { getPool, withTransaction } from "../../lib/db";
 import { peekCounter, commitCounter } from "../../lib/counters";
 import { dateKey, round2, ValidationError } from "../../lib/money";
 import { broadcast } from "../../lib/broadcastClient";
+import { posImageUrl } from "../../lib/assetUrl";
 
 function ok(data: unknown, status = 200): APIGatewayProxyResultV2 {
   return { statusCode: status, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ success: true, data }) };
@@ -64,10 +65,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         return groups.get(name)!;
       };
       for (const r of foodItems.rows) {
-        bucket(r.category_name, [0, r.category_sort ?? 0]).items.push({ id: r.id, kind: "food", name: r.name, price: round2(Number(r.price)), tax_rate: 0, brand: null, bottle_size: null, available: r.status === "active" && inStock(r) });
+        bucket(r.category_name, [0, r.category_sort ?? 0]).items.push({ id: r.id, kind: "food", name: r.name, price: round2(Number(r.price)), tax_rate: 0, brand: null, bottle_size: null, image_url: posImageUrl(r.image_path), available: r.status === "active" && inStock(r) });
       }
       for (const r of alcItems.rows) {
-        bucket(r.category_name, [1, r.category_sort ?? 0]).items.push({ id: r.id, kind: "alcohol", name: r.name, price: round2(Number(r.price)), tax_rate: Number(r.tax_rate) || 0, brand: r.brand ?? null, bottle_size: r.bottle_size ?? null, available: r.status === "active" && inStock(r) });
+        bucket(r.category_name, [1, r.category_sort ?? 0]).items.push({ id: r.id, kind: "alcohol", name: r.name, price: round2(Number(r.price)), tax_rate: Number(r.tax_rate) || 0, brand: r.brand ?? null, bottle_size: r.bottle_size ?? null, image_url: posImageUrl(r.image_path), available: r.status === "active" && inStock(r) });
       }
       const categories = [...groups.values()].sort((a, b) => a.sort[0] - b.sort[0] || a.sort[1] - b.sort[1])
         .map((g) => ({ category: g.category, items: g.items.sort((a, b) => String(a.name).localeCompare(b.name)) }));
@@ -80,6 +81,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       const token = String(body.token || "").trim();
       const rawItems: any[] = Array.isArray(body.items) ? body.items : [];
       if (rawItems.length === 0) return err("Your cart is empty.");
+      // This route is public and unauthenticated - anyone who can photograph a
+      // table's QR can call it. Each line costs a database round trip, so an
+      // uncapped cart is a free way to tie up a Lambda and run up a bill.
+      if (rawItems.length > MAX_QR_LINES) return err(`An order can have at most ${MAX_QR_LINES} different items.`);
       const table = await tableByToken(token);
       if (!table) return err("This table code is not valid. Please ask our staff.", 404);
 
@@ -88,7 +93,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         const kind = raw.kind === "alcohol" ? "alcohol" : "food";
         const itemId = String(raw.id || "");
         const qty = Number(raw.qty);
-        if (!itemId || !Number.isFinite(qty)) return err("That order contains an invalid item.");
+        // Integer, not merely finite: a qty of 2.5 priced a real line at half a
+        // portion and put a fractional quantity on the kitchen ticket. Track A
+        // parses this with int(); matching it keeps the two in step.
+        if (!itemId || !Number.isInteger(qty)) return err("That order contains an invalid item.");
         if (qty <= 0 || qty > MAX_QR_LINE_QTY) return err(`Quantity must be between 1 and ${MAX_QR_LINE_QTY}.`);
         const r = (await pool.query("SELECT * FROM catalog WHERE id=$1", [itemId])).rows[0];
         if (!r || r.status !== "active") return err("One of the items is no longer available. Please refresh the menu.");

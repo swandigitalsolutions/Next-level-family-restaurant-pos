@@ -42,12 +42,21 @@ export type ClaimResult =
 
 /** Must be called with the client of an already-open (SERIALIZABLE) transaction. */
 export async function claimIdempotencyKey(client: PoolClient, key: string, hash: string): Promise<ClaimResult> {
-  await client.query(
+  // RETURNING tells us, with no ambiguity, whether THIS statement inserted the
+  // row. The previous version inferred it from "the row is less than 250ms
+  // old", comparing the Lambda's clock against the database's - a few hundred
+  // milliseconds of skew between them (entirely normal) either made the first
+  // caller believe someone else held the claim, so a paid order was never
+  // created, or made a genuinely stale claim look brand new. The database's
+  // own answer does not drift.
+  const inserted = await client.query(
     `INSERT INTO website_order_idempotency (key, request_hash, status, created_at)
      VALUES ($1, $2, 'pending', now())
-     ON CONFLICT (key) DO NOTHING`,
+     ON CONFLICT (key) DO NOTHING
+     RETURNING key`,
     [key, hash],
   );
+  const insertedByThisCall = (inserted.rowCount ?? 0) > 0;
   const res = await client.query(
     `SELECT request_hash, status, order_id, ref, pending_order, created_at
      FROM website_order_idempotency WHERE key = $1 FOR UPDATE`,
@@ -60,16 +69,25 @@ export async function claimIdempotencyKey(client: PoolClient, key: string, hash:
   if (row.status === "done" && row.order_id) return { outcome: "duplicate", orderId: row.order_id, ref: row.ref };
   if (row.status === "pending" && row.pending_order) return { outcome: "resume", pendingOrder: row.pending_order };
 
-  const ageMs = Date.now() - new Date(row.created_at).getTime();
-  const justInserted = ageMs < 250; // this call's own INSERT just landed
-  if (row.status === "pending" && !justInserted && ageMs > STALE_MS) {
+  if (insertedByThisCall) return { outcome: "claimed" };
+
+  // Someone else's row. Only take it over once it is definitively abandoned.
+  // Age is measured entirely inside the database (both `created_at` and the
+  // comparison clock are the server's), so it does not depend on the Lambda's
+  // clock agreeing with it.
+  const stale = await client.query(
+    `SELECT (now() - created_at) > make_interval(secs => $2) AS stale
+     FROM website_order_idempotency WHERE key = $1`,
+    [key, STALE_MS / 1000],
+  );
+  if (row.status === "pending" && stale.rows[0]?.stale) {
     await client.query(
       `UPDATE website_order_idempotency SET request_hash = $2, created_at = now() WHERE key = $1`,
       [key, hash],
     );
     return { outcome: "claimed" };
   }
-  return justInserted ? { outcome: "claimed" } : { outcome: "in_progress" };
+  return { outcome: "in_progress" };
 }
 
 /** Stash the fully computed order — call OUTSIDE the claiming transaction

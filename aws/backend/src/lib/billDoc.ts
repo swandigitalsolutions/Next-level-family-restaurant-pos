@@ -31,6 +31,8 @@ export interface BuildBillInput {
   createdAt: Date;
   items: FoodBillLine[] | AlcoholBillLine[];
   legacyId?: number | string | null;
+  /** Caller-supplied retry key; see bills.client_ref in 001_init.sql. */
+  clientRef?: string | null;
 }
 
 /** Row shape ready for a parameterized INSERT into `bills`. */
@@ -60,6 +62,7 @@ export interface BillRow {
   hour: number;
   items: unknown;
   legacy_id: number | string | null;
+  client_ref: string | null;
 }
 
 export function buildBillRow(input: BuildBillInput): BillRow {
@@ -92,6 +95,7 @@ export function buildBillRow(input: BuildBillInput): BillRow {
     hour: hourOf(input.createdAt, RESTAURANT_TZ),
     items: input.items,
     legacy_id: input.legacyId ?? null,
+    client_ref: input.clientRef ?? null,
   };
 }
 
@@ -103,14 +107,14 @@ export async function insertBill(client: PoolClient, id: string, row: BillRow): 
     `INSERT INTO bills (id, bill_no, bill_no_lower, type, source, table_id, table_session_id,
        customer_name, customer_phone, customer_name_lower, search_tokens, subtotal, discount, tax,
        grand_total, payment_method, status, website_order_id, website_order_no, deposit_paid_paise,
-       created_by_uid, created_at, date_key, hour, items, legacy_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)`,
+       created_by_uid, created_at, date_key, hour, items, legacy_id, client_ref)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)`,
     [
       id, row.bill_no, row.bill_no_lower, row.type, row.source, row.table_id, row.table_session_id,
       row.customer_name, row.customer_phone, row.customer_name_lower, row.search_tokens, row.subtotal,
       row.discount, row.tax, row.grand_total, row.payment_method, row.status, row.website_order_id,
       row.website_order_no, row.deposit_paid_paise, row.created_by_uid, row.created_at, row.date_key,
-      row.hour, JSON.stringify(row.items), row.legacy_id,
+      row.hour, JSON.stringify(row.items), row.legacy_id, row.client_ref,
     ],
   );
 }

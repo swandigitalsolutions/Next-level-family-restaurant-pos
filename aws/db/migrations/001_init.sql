@@ -158,9 +158,16 @@ CREATE TABLE bills (
   website_order_id    text,
   website_order_no    text,
   deposit_paid_paise  integer,
-  legacy_id           integer
+  legacy_id           integer,
+  -- Retry key supplied by the till. A bill POST that the browser had to send
+  -- twice (counter wifi, an impatient second tap, a reloaded tab) carries the
+  -- same value both times, and the unique index below makes "one bill per
+  -- sale" a fact the database enforces rather than something the handler
+  -- hopes for.
+  client_ref          text
 );
 CREATE UNIQUE INDEX bills_bill_no_uq ON bills (bill_no);
+CREATE UNIQUE INDEX bills_client_ref_uq ON bills (client_ref) WHERE client_ref IS NOT NULL;
 CREATE INDEX bills_type_created_idx ON bills (type, created_at DESC);
 CREATE INDEX bills_datekey_created_idx ON bills (date_key, created_at DESC);
 CREATE INDEX bills_type_datekey_created_idx ON bills (type, date_key, created_at DESC);

@@ -6,6 +6,7 @@
  */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 import { getPool } from "../../lib/db";
+import { websiteImageUrl } from "../../lib/assetUrl";
 
 function allowedKeys(): Set<string> {
   return new Set(String(process.env.WEBSITE_API_KEYS || "").split(",").map((k) => k.trim()).filter(Boolean));
@@ -41,7 +42,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       bump(it.updated_at);
       return {
         id: it.legacy_id ?? it.id, legacyId: it.legacy_id ?? null, name: it.name,
-        description: it.description ?? null, imageUrl: it.image_path ?? null,
+        description: it.description ?? null, imageUrl: websiteImageUrl(it.image_path),
         pricePaise: Math.round(Number(it.price) * 100), price: Number(it.price),
         available: it.stock_qty === null || it.stock_qty === undefined || Number(it.stock_qty) > 0,
       };

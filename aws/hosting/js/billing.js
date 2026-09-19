@@ -51,7 +51,7 @@
     if (!list) return;
     list.innerHTML = TABLES.map(table => {
       const isOpen = table.status === "open";
-      const isActive = ACTIVE_TABLE && Number(ACTIVE_TABLE.table_id || ACTIVE_TABLE.id) === Number(table.id);
+      const isActive = ACTIVE_TABLE && String(ACTIVE_TABLE.table_id || ACTIVE_TABLE.id) === String(table.id);
       return `<button class="table-card ${isOpen ? "open" : ""} ${isActive ? "active" : ""}" data-table-id="${table.id}" type="button">
         <span class="table-state">${isOpen ? "Open" : "Available"}</span>
         <div class="table-no">${escapeHtml(table.table_no)}</div>
@@ -60,7 +60,7 @@
       </button>`;
     }).join("");
     list.querySelectorAll("[data-table-id]").forEach(button => {
-      button.addEventListener("click", () => selectTable(Number(button.dataset.tableId)));
+      button.addEventListener("click", () => selectTable(button.dataset.tableId));
     });
     updateTableSummary();
   }
@@ -82,7 +82,7 @@
   }
 
   async function selectTable(tableId) {
-    const table = TABLES.find(item => Number(item.id) === Number(tableId));
+    const table = TABLES.find(item => String(item.id) === String(tableId));
     if (!table) return;
     if (table.status !== "open") {
       openTableModal(table);
@@ -173,7 +173,7 @@
     }).join("");
     list.innerHTML = html;
     list.querySelectorAll(".cat-btn").forEach(btn => btn.addEventListener("click", () => {
-      activeCategoryId = btn.dataset.id === "all" ? "all" : Number(btn.dataset.id);
+      activeCategoryId = btn.dataset.id;
       renderCategories();
       renderItems();
     }));
@@ -197,7 +197,7 @@
       <div class="item-card-info"><div class="i-sub">${escapeHtml(i.category_name || "Food item")}</div><div class="i-name">${escapeHtml(i.name)}</div><div class="i-price">${formatMoney(i.price)}</div><div class="i-add-hint">${soldOut ? "Out of stock" : `Tap to add to ${ACTIVE_TABLE ? escapeHtml(ACTIVE_TABLE.table_no) : "counter bill"}`}</div></div>
     </button>`;
     }).join("");
-    grid.querySelectorAll(".item-card:not([disabled])").forEach(card => card.addEventListener("click", () => addToCart({ item_id: Number(card.dataset.id), name: card.dataset.name, price: Number(card.dataset.price), item_kind: "food", tax_rate: TAX_PERCENT })));
+    grid.querySelectorAll(".item-card:not([disabled])").forEach(card => card.addEventListener("click", () => addToCart({ item_id: card.dataset.id, name: card.dataset.name, price: Number(card.dataset.price), item_kind: "food", tax_rate: TAX_PERCENT })));
   }
 
   document.getElementById("searchBox").addEventListener("input", renderItems);
@@ -294,7 +294,12 @@
   document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
   document.getElementById("editBillBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
 
+  // One key per sale, reused across retries so a second attempt is
+  // recognised as the same bill instead of becoming a duplicate charge.
+  let PENDING_BILL_KEY = null;
+
   async function finalizeBill(doPrint) {
+    if (!PENDING_BILL_KEY) PENDING_BILL_KEY = newIdempotencyKey();
     const printBtn = document.getElementById("confirmPrintBtn");
     const onlyBtn = document.getElementById("confirmOnlyBtn");
     const labels = { [printBtn.id]: printBtn.textContent, [onlyBtn.id]: onlyBtn.textContent };
@@ -311,9 +316,10 @@
         CART = [];
         await loadTables();
       } else {
-        const bill = await apiFetch("/food/bills", { method: "POST", body: { customer_name: document.getElementById("customerName").value.trim(), customer_phone: document.getElementById("customerPhone").value.trim(), items: CART, discount: computeTotals().discount, tax_percent: currentTaxPercent(), payment_method: paymentMethod } });
+        const bill = await apiFetch("/food/bills", { method: "POST", body: { customer_name: document.getElementById("customerName").value.trim(), customer_phone: document.getElementById("customerPhone").value.trim(), items: CART, discount: computeTotals().discount, tax_percent: currentTaxPercent(), payment_method: paymentMethod, client_ref: PENDING_BILL_KEY } });
         showToast(`Bill ${bill.bill_no} confirmed`);
         if (doPrint) printReceipt(bill);
+        PENDING_BILL_KEY = null;   // this sale is banked; the next one is new
         CART = [];
       }
       document.getElementById("customerName").value = "";

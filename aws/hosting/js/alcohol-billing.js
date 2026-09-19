@@ -56,7 +56,7 @@
     list.querySelectorAll(".cat-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.id;
-        activeCategoryId = id === "all" ? "all" : Number(id);
+        activeCategoryId = id;
         renderCategories();
         renderItems();
       });
@@ -102,7 +102,7 @@
     grid.querySelectorAll(".item-card:not(.is-sold-out)").forEach(card => {
       card.addEventListener("click", () => {
           addToCart({
-          item_id: Number(card.dataset.id),
+          item_id: card.dataset.id,
           name: card.dataset.name,
           brand: card.dataset.brand,
           bottle_size: card.dataset.size,
@@ -233,7 +233,12 @@
     document.getElementById("confirmModal").classList.remove("show");
   });
 
+  // One key per sale, reused across retries so a second attempt is
+  // recognised as the same bill instead of becoming a duplicate charge.
+  let PENDING_BILL_KEY = null;
+
   async function finalizeAlcoholBill(doPrint) {
+    if (!PENDING_BILL_KEY) PENDING_BILL_KEY = newIdempotencyKey();
     const printBtn = document.getElementById("confirmPrintBtn");
     const onlyBtn = document.getElementById("confirmOnlyBtn");
     const labels = { [printBtn.id]: printBtn.textContent, [onlyBtn.id]: onlyBtn.textContent };
@@ -260,12 +265,13 @@
         TARGET_SESSION_ID = "";
         renderTableTargets();
       } else {
-        const bill = await apiFetch("/alcohol/bills", { method: "POST", body: payload });
+        const bill = await apiFetch("/alcohol/bills", { method: "POST", body: { ...payload, client_ref: PENDING_BILL_KEY } });
         showToast(`Bill ${bill.bill_no} confirmed`);
         if (doPrint) printReceipt(bill);
       }
 
       // Only clear cart after a successful save
+      PENDING_BILL_KEY = null;   // this sale is banked; the next one is new
       CART = [];
       document.getElementById("customerName").value = "";
       document.getElementById("customerPhone").value = "";

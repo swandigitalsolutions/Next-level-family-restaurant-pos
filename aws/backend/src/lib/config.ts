@@ -89,6 +89,19 @@ export function legalQrTransition(from: string, to: string): boolean {
 /** backend/app.py MAX_QR_LINE_QTY. */
 export const MAX_QR_LINE_QTY = 50;
 
+/** Most distinct lines one public QR order may carry (backend/app.py
+ * MAX_QR_LINES). Far above a real table's order; it exists so the one
+ * unauthenticated write route cannot be used to make the server do unbounded
+ * work per request. */
+export const MAX_QR_LINES = 40;
+
+/** Most rows one CSV export may render. A Lambda response is hard-capped at
+ * 6MB by API Gateway, and the whole file is built in memory first, so an
+ * unbounded "export everything" fails with an opaque platform error once the
+ * restaurant has enough history. Bounded, it fails with a sentence the owner
+ * can act on. */
+export const EXPORT_MAX_ROWS = Number(process.env.EXPORT_MAX_ROWS || 20000);
+
 /** Safety caps for counter/session billing (fat-finger + doc-size protection).
  * The caller is an authenticated cashier, so these are sanity limits, not a
  * trust boundary. */

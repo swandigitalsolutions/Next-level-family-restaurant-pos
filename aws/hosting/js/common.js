@@ -10,7 +10,7 @@
    dependency. Only the auth + realtime-alert sections differ.
 */
 import { requireAuth as awsRequireAuth, getCurrentUser, logout as awsLogout, getIdToken } from "./aws-auth.js";
-import { apiFetch, orderAlertDecision, websiteOrderAlertDecision } from "./api-shim.js";
+import { apiFetch, newIdempotencyKey, orderAlertDecision, websiteOrderAlertDecision } from "./api-shim.js";
 import { connectRealtime, startReconciliationPoll } from "./aws-realtime.js";
 import { API_BASE_URL } from "./aws-config.js";
 
@@ -307,8 +307,13 @@ function escapeHtml(str) {
   if (str === null || str === undefined) return "";
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
 }
+const MENU_PLACEHOLDER = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a2320"/><stop offset="1" stop-color="#14100e"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/><g fill="none" stroke="#c9a15a" stroke-width="6" stroke-linecap="round" opacity=".85"><circle cx="200" cy="150" r="52"/><circle cx="200" cy="150" r="34" opacity=".5"/><path d="M120 110v80M112 110v26q0 12 8 12t8-12v-26M300 110c-12 10-16 28-16 46h16v34"/></g></svg>');
 function menuImage(itemOrName, kind = "food") {
   const item = typeof itemOrName === "string" ? { name: itemOrName } : itemOrName || {};
+  // The catalog row is the source of truth for its own photo (image_url from the API).
+  if (item.image_url) return item.image_url;
+  // A restaurant-menu item with no verified photo gets a neutral placeholder — a WRONG dish photo is worse than none.
+  if (item.kind === "food") return MENU_PLACEHOLDER;
   const normalizedKind = kind === "alcohol" ? "alcohol" : "food";
   const name = String(item.name || "").trim().toLowerCase();
   const category = String(item.category_name || item.category || "").toLowerCase();
@@ -333,7 +338,7 @@ function animatePress(element) {
 }
 
 Object.assign(window, {
-  apiFetch, requireAuth, currentUser,
+  apiFetch, newIdempotencyKey, requireAuth, currentUser,
   showToast, confirmAction, confirmLogout, renderSidebar, navIcon,
   formatMoney, computeDiscountAmount, discountRowLabel, setupDiscountMode,
   escapeHtml, menuImage, categoryImage, animatePress,

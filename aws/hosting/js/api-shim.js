@@ -100,6 +100,21 @@ async function callApi(mod, action, body) {
 const query = (action, body) => callApi("queries", action, body);
 const call = (mod, action, body) => callApi(mod, action, body);
 
+/*
+  A key that survives retries of the SAME sale.
+
+  Counter wifi drops, a cashier taps "Save" twice because the first tap seemed
+  to do nothing, a tab is reloaded mid-save: each can put one bill on the wire
+  more than once. The backend refuses to create a second bill for a key it has
+  already seen (bills.client_ref is UNIQUE), so the customer is charged once.
+  The key must be created when the sale is confirmed and REUSED for every
+  retry of it - a fresh key per attempt defeats the whole mechanism.
+*/
+export function newIdempotencyKey() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export async function apiFetch(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
   const body = options.body && typeof options.body === "string" ? JSON.parse(options.body) : options.body || {};

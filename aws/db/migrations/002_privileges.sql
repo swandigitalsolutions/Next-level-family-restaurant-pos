@@ -8,10 +8,15 @@
 -- already exist (created by aws/infra CDK via a Secrets-Manager-rotated user,
 -- or manually: CREATE ROLE pos_app LOGIN PASSWORD '...';).
 
+-- Stop, rather than warn. A NOTICE here scrolled past while every GRANT below
+-- failed and every REVOKE succeeded, leaving a database where history is
+-- append-only but the application role has no privileges at all — a state that
+-- looks like a successful run and breaks the first request after deploy.
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pos_app') THEN
-    RAISE NOTICE 'Role pos_app does not exist yet — run this after the app DB user is created.';
+    RAISE EXCEPTION
+      'Role pos_app does not exist. Create the application DB user first, then re-run this file. (CREATE ROLE pos_app LOGIN PASSWORD ''...'';)';
   END IF;
 END $$;
 

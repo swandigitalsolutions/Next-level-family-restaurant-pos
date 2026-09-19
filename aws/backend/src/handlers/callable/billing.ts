@@ -16,10 +16,32 @@ import { peekCounter, commitCounter, CounterName } from "../../lib/counters";
 import { readStockSnapshots, applyStockWrites } from "../../lib/stock";
 import { buildBillRow, insertBill } from "../../lib/billDoc";
 import { auditInTx } from "../../lib/audit";
-import { withTransaction } from "../../lib/db";
+import { getPool, withTransaction } from "../../lib/db";
 import { computeRolling } from "../../lib/statsService";
 
 const OPERATIONAL = ["billing", "manager", "admin"] as const;
+
+/** Shape of a caller-supplied retry key. Deliberately the same alphabet and
+ * length window as the website channel's Idempotency-Key, so there is one rule
+ * to remember. Anything that does not match is ignored rather than rejected:
+ * an old till build that sends nothing keeps working exactly as before. */
+const CLIENT_REF_RE = /^[A-Za-z0-9._:-]{8,128}$/;
+
+function normalizeClientRef(raw: unknown): string | null {
+  const s = String(raw ?? "").trim();
+  return CLIENT_REF_RE.test(s) ? s : null;
+}
+
+/** The bill a previous attempt with this key already created, if any. */
+async function findBillByClientRef(clientRef: string) {
+  const pool = await getPool();
+  const res = await pool.query(
+    "SELECT id, type, bill_no FROM bills WHERE client_ref = $1 LIMIT 1",
+    [clientRef],
+  );
+  const row = res.rows[0];
+  return row ? { id: row.id, type: row.type, bill_no: row.bill_no } : null;
+}
 
 const toSessionLine = (i: any): SessionLine => ({
   itemKind: i.kind === "alcohol" ? "alcohol" : "food",
@@ -57,23 +79,47 @@ export const handler = dispatch({
       ? computed.items.map((l: any) => ({ itemName: l.itemName, price: l.price, qty: l.qty, lineTotal: l.lineTotal }))
       : computed.items.map((l: any) => ({ itemName: l.itemName, brand: l.brand, bottleSize: l.bottleSize, price: l.price, qty: l.qty, taxRate: l.taxRate, lineTotal: l.lineTotal }));
 
+    // A bill POST the browser had to retry - counter wifi, a reloaded tab, a
+    // second tap after the first response was lost - must not become a second
+    // charge. The till sends the same key for every retry of one sale; the
+    // unique index on bills.client_ref makes that guarantee the database's,
+    // not the handler's.
+    const clientRef = normalizeClientRef(body?.client_ref);
+    if (clientRef) {
+      const existing = await findBillByClientRef(clientRef);
+      if (existing) return { ...existing, deduplicated: true };
+    }
+
     const billId = "bill_" + randomUUID();
     const createdAt = new Date();
 
-    const billNo = await withTransaction(async (client) => {
-      const stockSnaps = await readStockSnapshots(client, computed.items.map((l: any) => l.itemId));
-      const current = await peekCounter(client, counterName);
-      const billNo = await commitCounter(client, counterName, current + 1);
-      const row = buildBillRow({
-        billNo, type: type as "FOOD" | "ALCOHOL" | "CAFE", source: type === "CAFE" ? "cafe" : undefined,
-        tableId, tableSessionId, customerName, customerPhone, subtotal: computed.subtotal, discount: computed.discount,
-        tax: computed.tax, grandTotal: computed.grandTotal, paymentMethod, createdByUid: caller.uid, createdAt, items: billItems as never,
+    let billNo: string;
+    try {
+      billNo = await withTransaction(async (client) => {
+        const stockSnaps = await readStockSnapshots(client, computed.items.map((l: any) => l.itemId));
+        const current = await peekCounter(client, counterName);
+        const billNo = await commitCounter(client, counterName, current + 1);
+        const row = buildBillRow({
+          billNo, type: type as "FOOD" | "ALCOHOL" | "CAFE", source: type === "CAFE" ? "cafe" : undefined,
+          tableId, tableSessionId, customerName, customerPhone, subtotal: computed.subtotal, discount: computed.discount,
+          tax: computed.tax, grandTotal: computed.grandTotal, paymentMethod, createdByUid: caller.uid, createdAt, items: billItems as never,
+          clientRef,
+        });
+        await insertBill(client, billId, row);
+        await applyStockWrites(client, stockSnaps, computed.items.map((l: any) => ({ itemId: l.itemId, delta: -l.qty })));
+        await auditInTx(client, { actorUid: caller.uid, actorUsername: caller.username || null, actorRole: caller.role, action: "bill.create", entityType: type === "FOOD" ? "food_bill" : type === "CAFE" ? "cafe_bill" : "alcohol_bill", entityId: billId, details: { bill_no: billNo, grand_total: computed.grandTotal } });
+        return billNo;
       });
-      await insertBill(client, billId, row);
-      await applyStockWrites(client, stockSnaps, computed.items.map((l: any) => ({ itemId: l.itemId, delta: -l.qty })));
-      await auditInTx(client, { actorUid: caller.uid, actorUsername: caller.username || null, actorRole: caller.role, action: "bill.create", entityType: type === "FOOD" ? "food_bill" : type === "CAFE" ? "cafe_bill" : "alcohol_bill", entityId: billId, details: { bill_no: billNo, grand_total: computed.grandTotal } });
-      return billNo;
-    });
+    } catch (e: any) {
+      // Two retries of one sale raced each other and the loser's INSERT hit
+      // the unique index. That is the intended outcome, not an error: hand
+      // back the bill the winner created.
+      if (clientRef) {
+        const existing = await findBillByClientRef(clientRef);
+        if (existing) return { ...existing, deduplicated: true };
+      }
+      throw e;
+    }
     // Best-effort dashboard refresh — never let a stats failure roll back or
     // fail a bill that has already committed.
     computeRolling().catch((e) => console.error("stats refresh failed (non-fatal)", e));

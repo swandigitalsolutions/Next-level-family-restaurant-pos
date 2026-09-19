@@ -161,7 +161,12 @@
   document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
   document.getElementById("editBillBtn").addEventListener("click", () => document.getElementById("confirmModal").classList.remove("show"));
 
+  // One key per sale, reused across retries so a second attempt is
+  // recognised as the same bill instead of becoming a duplicate charge.
+  let PENDING_BILL_KEY = null;
+
   async function finalizeCafeBill(doPrint) {
+    if (!PENDING_BILL_KEY) PENDING_BILL_KEY = newIdempotencyKey();
     const printBtn = document.getElementById("confirmPrintBtn");
     const onlyBtn = document.getElementById("confirmOnlyBtn");
     const labels = { [printBtn.id]: printBtn.textContent, [onlyBtn.id]: onlyBtn.textContent };
@@ -175,9 +180,10 @@
       payment_method: document.getElementById("paymentMethod").value,
     };
     try {
-      const bill = await apiFetch("/cafe/bills", { method: "POST", body: payload });
+      const bill = await apiFetch("/cafe/bills", { method: "POST", body: { ...payload, client_ref: PENDING_BILL_KEY } });
       showToast(`Bill ${bill.bill_no} confirmed`);
       if (doPrint) printReceipt(bill);
+      PENDING_BILL_KEY = null;   // this sale is banked; the next one is new
       CART = [];
       document.getElementById("customerName").value = "";
       document.getElementById("customerPhone").value = "";

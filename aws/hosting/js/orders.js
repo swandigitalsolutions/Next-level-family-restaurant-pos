@@ -82,7 +82,7 @@
     `).join("");
 
     body.querySelectorAll(".view-link").forEach(btn => {
-      btn.addEventListener("click", () => openViewModal(Number(btn.dataset.id), btn.dataset.type));
+      btn.addEventListener("click", () => openViewModal(btn.dataset.id, btn.dataset.type));
     });
   }
 

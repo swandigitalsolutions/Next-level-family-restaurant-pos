@@ -5,7 +5,7 @@
 import { API_BASE_URL } from "./aws-config.js";
 
 const TOKEN = decodeURIComponent(location.pathname.replace(/^\/menu\//, "").replace(/\/+$/, ""));
-const FALLBACK_IMG = "../assets/optimized/menu-reference.webp";
+const FALLBACK_IMG = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a2320"/><stop offset="1" stop-color="#14100e"/></linearGradient></defs><rect width="400" height="300" fill="url(#g)"/><g fill="none" stroke="#c9a15a" stroke-width="6" stroke-linecap="round" opacity=".85"><circle cx="200" cy="150" r="52"/><circle cx="200" cy="150" r="34" opacity=".5"/><path d="M120 110v80M112 110v26q0 12 8 12t8-12v-26M300 110c-12 10-16 28-16 46h16v34"/></g></svg>');
 
 const state = {
   restaurant: "",
@@ -27,6 +27,8 @@ function money(n) {
   return "₹" + (Number(n) || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function imageFor(item) {
+  if (item.image_url) return item.image_url;
+  if (item.kind === "food") return FALLBACK_IMG;
   const name = String(item.name || "").trim().toLowerCase();
   const kind = item.kind === "alcohol" ? "alcohol" : "food";
   const corrected = kind === "food" && window.CORRECT_FOOD_IMAGE_MAP ? window.CORRECT_FOOD_IMAGE_MAP["food:" + name] : null;

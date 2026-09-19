@@ -12,12 +12,18 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { getPool } from "../../lib/db";
 import { writeAudit } from "../../lib/audit";
-import { RESTAURANT_TZ, normalizeRole } from "../../lib/config";
+import { RESTAURANT_TZ, normalizeRole, EXPORT_MAX_ROWS } from "../../lib/config";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function csvCell(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // Neutralise spreadsheet formula injection. Customer names arrive from the
+  // till exactly as typed; Excel and Sheets execute a cell that starts with
+  // =, +, - or @, so a "customer" named =HYPERLINK(...) turns the owner's own
+  // sales report into a live attack the moment they open it. A leading
+  // apostrophe keeps the text readable and inert.
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 function localStamp(d: Date): string {
@@ -58,8 +64,19 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   if (type !== "all") { params.push(type.toUpperCase()); where.push(`type = $${params.length}`); }
   if (from) { params.push(from); where.push(`date_key >= $${params.length}`); }
   if (to) { params.push(to); where.push(`date_key <= $${params.length}`); }
-  const sql = `SELECT * FROM bills ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY date_key, created_at`;
+  // Bounded on purpose: the whole CSV is assembled in memory and API Gateway
+  // hard-caps a Lambda response at 6MB, so an unbounded "export everything"
+  // eventually fails with an opaque platform error. Fetching one row beyond
+  // the limit is how we tell "exactly at the limit" from "too many".
+  params.push(EXPORT_MAX_ROWS + 1);
+  const sql = `SELECT * FROM bills ${where.length ? "WHERE " + where.join(" AND ") : ""} ORDER BY date_key, created_at LIMIT $${params.length}`;
   const rows = (await pool.query(sql, params)).rows;
+  if (rows.length > EXPORT_MAX_ROWS) {
+    return json(413, {
+      success: false,
+      error: `That range covers more than ${EXPORT_MAX_ROWS} bills. Please export a shorter date range.`,
+    });
+  }
 
   const header = ["Type", "Bill No", "Date", "Customer", "Phone", "Subtotal", "Discount", "Tax", "Grand Total", "Payment Method", "Status"];
   const lines = [header.join(",")];

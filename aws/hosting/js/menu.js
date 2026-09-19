@@ -279,7 +279,7 @@
     const form = e.target;
     const payload = {
       name: form.name.value.trim(),
-      category_id: Number(form.category_id.value),
+      category_id: form.category_id.value,
       price: form.price.value,
       stock_qty: form.stock_qty.value,
     };
@@ -386,7 +386,7 @@
     const form = e.target;
     const payload = {
       name: form.name.value.trim(),
-      category_id: Number(form.category_id.value),
+      category_id: form.category_id.value,
       brand: form.brand.value.trim(),
       bottle_size: form.bottle_size.value.trim(),
       price: form.price.value,
